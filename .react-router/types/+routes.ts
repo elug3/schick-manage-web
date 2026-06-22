@@ -20,7 +20,18 @@ type Pages = {
   "/products": {
     params: {};
   };
+  "/products/new": {
+    params: {};
+  };
+  "/products/:id": {
+    params: {
+      "id": string;
+    };
+  };
   "/orders": {
+    params: {};
+  };
+  "/coupons": {
     params: {};
   };
   "/analytics": {
@@ -37,7 +48,7 @@ type Pages = {
 type RouteFiles = {
   "root.js": {
     id: "root";
-    page: "/" | "/login" | "/products" | "/orders" | "/analytics" | "/users" | "/settings";
+    page: "/" | "/login" | "/products" | "/products/new" | "/products/:id" | "/orders" | "/coupons" | "/analytics" | "/users" | "/settings";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -45,7 +56,7 @@ type RouteFiles = {
   };
   "routes/admin.tsx": {
     id: "routes/admin";
-    page: "/" | "/products" | "/orders" | "/analytics" | "/users" | "/settings";
+    page: "/" | "/products" | "/products/new" | "/products/:id" | "/orders" | "/coupons" | "/analytics" | "/users" | "/settings";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -55,9 +66,21 @@ type RouteFiles = {
     id: "routes/products";
     page: "/products";
   };
+  "routes/products.new.tsx": {
+    id: "routes/products.new";
+    page: "/products/new";
+  };
+  "routes/products.$id.tsx": {
+    id: "routes/products.$id";
+    page: "/products/:id";
+  };
   "routes/orders.tsx": {
     id: "routes/orders";
     page: "/orders";
+  };
+  "routes/coupons.tsx": {
+    id: "routes/coupons";
+    page: "/coupons";
   };
   "routes/analytics.tsx": {
     id: "routes/analytics";
@@ -79,7 +102,10 @@ type RouteModules = {
   "routes/admin": typeof import("./app/routes/admin.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/products": typeof import("./app/routes/products.tsx");
+  "routes/products.new": typeof import("./app/routes/products.new.tsx");
+  "routes/products.$id": typeof import("./app/routes/products.$id.tsx");
   "routes/orders": typeof import("./app/routes/orders.tsx");
+  "routes/coupons": typeof import("./app/routes/coupons.tsx");
   "routes/analytics": typeof import("./app/routes/analytics.tsx");
   "routes/users": typeof import("./app/routes/users.tsx");
   "routes/settings": typeof import("./app/routes/settings.tsx");

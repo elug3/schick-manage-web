@@ -9,3 +9,7 @@ html,
 body {
   @apply bg-white;
 }
+
+.input {
+  @apply w-full rounded-xl border border-[#E5E3EE] bg-white px-3.5 py-2.5 text-sm text-[#1C1B1F] outline-none transition focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/10 placeholder:text-[#C4C1D4];
+}

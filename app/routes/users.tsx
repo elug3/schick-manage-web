@@ -20,6 +20,8 @@ const ROLE_STYLES: Record<UserRole, string> = {
   user: "bg-[#F4F3F8] text-[#6B6480]",
 };
 
+type RoleFilter = UserRole | "all";
+
 const inputCls =
   "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition placeholder:text-[#B4B0C8] focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
 
@@ -31,6 +33,8 @@ export default function Users() {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
   useEffect(() => {
     getUsers()
@@ -76,6 +80,13 @@ export default function Users() {
     {} as Record<UserRole, number>
   );
 
+  const filtered = users.filter((u) => {
+    const matchesRole = roleFilter === "all" || u.role === roleFilter;
+    const matchesSearch =
+      !search || u.email.toLowerCase().includes(search.toLowerCase());
+    return matchesRole && matchesSearch;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -112,6 +123,52 @@ export default function Users() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Search + role filter */}
+      {!loading && !error && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1 rounded-xl border border-[#E5E3EE] bg-white p-1 shadow-[0_1px_3px_rgba(28,27,31,0.04)]">
+            {(["all", ...ROLE_ORDER] as RoleFilter[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRoleFilter(r)}
+                className={[
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition",
+                  roleFilter === r
+                    ? "bg-[#6D4AFF] text-white shadow-sm"
+                    : "text-[#6B6480] hover:bg-[#F4F3F8] hover:text-[#1C1B1F]",
+                ].join(" ")}
+              >
+                {r === "all" ? "All" : r}
+                {r !== "all" && (
+                  <span className="ml-1.5 opacity-70">{counts[r]}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 min-w-48">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#9D98B3]"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="m20 20-4.35-4.35M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search by email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-[#E5E3EE] bg-white py-2.5 pl-9 pr-4 text-sm text-[#1C1B1F] outline-none transition placeholder:text-[#B4B0C8] focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20 shadow-[0_1px_3px_rgba(28,27,31,0.04)]"
+            />
+          </div>
         </div>
       )}
 
@@ -160,7 +217,13 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-16 text-center text-sm text-[#9D98B3]">
+                      No users match your search
+                    </td>
+                  </tr>
+                ) : filtered.map((user) => (
                   <tr
                     key={user.id}
                     className="border-b border-[#F0EEF8] last:border-0 hover:bg-[#FAFAFA]"

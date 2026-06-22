@@ -13,8 +13,10 @@ export interface Product {
   name: string;
   category: string;
   price: number;
+  cost?: number;
   stock: number;
   description: string;
+  imageUrls?: string[];
   brand?: string;
   color?: string;
   material?: string;
@@ -65,6 +67,15 @@ export async function getProducts(): Promise<Product[]> {
   return res.json() as Promise<Product[]>;
 }
 
+export async function getProduct(id: string): Promise<Product> {
+  const res = await authedFetch(`/api/products/${id}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Product not found");
+  }
+  return res.json() as Promise<Product>;
+}
+
 export async function createProduct(
   data: Omit<Product, "id" | "createdAt">
 ): Promise<Product> {
@@ -99,6 +110,40 @@ export async function updateProduct(
 export async function deleteProduct(id: string): Promise<void> {
   const res = await authedFetch(`/api/products/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete product");
+}
+
+// Uses XHR so callers can track upload progress for large files.
+export function uploadProductImage(
+  id: string,
+  file: File,
+  onProgress?: (pct: number) => void
+): Promise<Product> {
+  return new Promise((resolve, reject) => {
+    const token = localStorage.getItem("schick_at") ?? "";
+    const fd = new FormData();
+    fd.append("image", file);
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", `/api/products/${id}/image`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText) as Product); }
+        catch { reject(new Error("Invalid response from server")); }
+      } else {
+        try {
+          const b = JSON.parse(xhr.responseText) as { error?: string };
+          reject(new Error(b.error ?? `Upload failed (${xhr.status})`));
+        } catch { reject(new Error(`Upload failed (${xhr.status})`)); }
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.send(fd);
+  });
 }
 
 // ── Users ────────────────────────────────────────────────────────────────────
@@ -146,8 +191,15 @@ export async function createUser(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? "Failed to create user");
+    const text = await res.text().catch(() => "");
+    let detail = "";
+    try {
+      const body = JSON.parse(text) as { error?: string; message?: string; detail?: string };
+      detail = body.error ?? body.message ?? body.detail ?? text;
+    } catch {
+      detail = text;
+    }
+    throw new Error(detail || `${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<AdminUser>;
 }
@@ -155,6 +207,60 @@ export async function createUser(data: {
 export async function deleteUser(id: string): Promise<void> {
   const res = await authedFetch(`/api/v1/users/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete user");
+}
+
+// ── Coupons ──────────────────────────────────────────────────────────────────
+// Routes through Vite proxy: /api → localhost:8081 (product service)
+
+export interface AdminCoupon {
+  code: string;
+  discount: number;   // fraction, e.g. 0.30 = 30 %
+  description: string;
+  expires: string;
+  active: boolean;
+}
+
+export async function getCoupons(): Promise<AdminCoupon[]> {
+  const res = await authedFetch("/api/coupons");
+  if (!res.ok) throw new Error("Failed to fetch coupons");
+  const data = (await res.json()) as { total: number; results: AdminCoupon[] | null };
+  return data.results ?? [];
+}
+
+export async function createCoupon(data: AdminCoupon): Promise<AdminCoupon> {
+  const res = await authedFetch("/api/coupons", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to create coupon");
+  }
+  return res.json() as Promise<AdminCoupon>;
+}
+
+export async function updateCoupon(
+  code: string,
+  data: Partial<Omit<AdminCoupon, "code">>
+): Promise<AdminCoupon> {
+  const res = await authedFetch(`/api/coupons/${encodeURIComponent(code)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Failed to update coupon");
+  }
+  return res.json() as Promise<AdminCoupon>;
+}
+
+export async function deleteCoupon(code: string): Promise<void> {
+  const res = await authedFetch(`/api/coupons/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete coupon");
 }
 
 // ── Orders ───────────────────────────────────────────────────────────────────

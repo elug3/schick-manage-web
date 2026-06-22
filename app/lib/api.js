@@ -9,6 +9,14 @@ export async function getProducts() {
     }
     return res.json();
 }
+export async function getProduct(id) {
+    const res = await authedFetch(`/api/products/${id}`);
+    if (!res.ok) {
+        const body = (await res.json().catch(() => ({})));
+        throw new Error(body.error ?? "Product not found");
+    }
+    return res.json();
+}
 export async function createProduct(data) {
     const res = await authedFetch("/api/products", {
         method: "POST",
@@ -38,6 +46,44 @@ export async function deleteProduct(id) {
     if (!res.ok)
         throw new Error("Failed to delete product");
 }
+// Uses XHR so callers can track upload progress for large files.
+export function uploadProductImage(id, file, onProgress) {
+    return new Promise((resolve, reject) => {
+        const token = localStorage.getItem("schick_at") ?? "";
+        const fd = new FormData();
+        fd.append("image", file);
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", `/api/products/${id}/image`);
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        if (onProgress) {
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable)
+                    onProgress(Math.round((e.loaded / e.total) * 100));
+            });
+        }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                }
+                catch {
+                    reject(new Error("Invalid response from server"));
+                }
+            }
+            else {
+                try {
+                    const b = JSON.parse(xhr.responseText);
+                    reject(new Error(b.error ?? `Upload failed (${xhr.status})`));
+                }
+                catch {
+                    reject(new Error(`Upload failed (${xhr.status})`));
+                }
+            }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(fd);
+    });
+}
 export async function getUsers() {
     const res = await authedFetch("/api/v1/users");
     if (!res.ok) {
@@ -65,8 +111,16 @@ export async function createUser(data) {
         body: JSON.stringify(data),
     });
     if (!res.ok) {
-        const body = (await res.json().catch(() => ({})));
-        throw new Error(body.error ?? "Failed to create user");
+        const text = await res.text().catch(() => "");
+        let detail = "";
+        try {
+            const body = JSON.parse(text);
+            detail = body.error ?? body.message ?? body.detail ?? text;
+        }
+        catch {
+            detail = text;
+        }
+        throw new Error(detail || `${res.status} ${res.statusText}`);
     }
     return res.json();
 }
@@ -74,6 +128,44 @@ export async function deleteUser(id) {
     const res = await authedFetch(`/api/v1/users/${id}`, { method: "DELETE" });
     if (!res.ok)
         throw new Error("Failed to delete user");
+}
+export async function getCoupons() {
+    const res = await authedFetch("/api/coupons");
+    if (!res.ok)
+        throw new Error("Failed to fetch coupons");
+    const data = (await res.json());
+    return data.results ?? [];
+}
+export async function createCoupon(data) {
+    const res = await authedFetch("/api/coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const body = (await res.json().catch(() => ({})));
+        throw new Error(body.error ?? "Failed to create coupon");
+    }
+    return res.json();
+}
+export async function updateCoupon(code, data) {
+    const res = await authedFetch(`/api/coupons/${encodeURIComponent(code)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const body = (await res.json().catch(() => ({})));
+        throw new Error(body.error ?? "Failed to update coupon");
+    }
+    return res.json();
+}
+export async function deleteCoupon(code) {
+    const res = await authedFetch(`/api/coupons/${encodeURIComponent(code)}`, {
+        method: "DELETE",
+    });
+    if (!res.ok)
+        throw new Error("Failed to delete coupon");
 }
 // ── Orders ───────────────────────────────────────────────────────────────────
 // Not yet implemented in the backend — returns empty list.

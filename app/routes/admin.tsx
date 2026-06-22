@@ -81,6 +81,7 @@ export default function AdminLayout() {
             <SidebarLink to="/" icon={<DashboardIcon />} label="Dashboard" exact />
             <SidebarLink to="/products" icon={<ProductsIcon />} label="Products" />
             <SidebarLink to="/orders" icon={<OrdersIcon />} label="Orders" />
+            <SidebarLink to="/coupons" icon={<CouponsIcon />} label="Coupons" />
             <SidebarLink to="/analytics" icon={<AnalyticsIcon />} label="Analytics" />
             <SidebarLink to="/users" icon={<UsersIcon />} label="Users" />
           </div>
@@ -251,6 +252,15 @@ function UsersIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function CouponsIcon() {
+  return (
+    <svg className="size-[18px]" viewBox="0 0 24 24" fill="none">
+      <path d="M12.5 3H7a2 2 0 0 0-2 2v5.5l9.5 9.5a2 2 0 0 0 2.83 0l4.17-4.17a2 2 0 0 0 0-2.83L12.5 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="9" cy="9" r="1" fill="currentColor" />
     </svg>
   );
 }
