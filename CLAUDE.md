@@ -66,7 +66,7 @@ Server-side session storage keeps refresh tokens off the browser:
 
 - Access token only in `localStorage` as `schick_at`.
 - Refresh token stored in the SSR server's in-memory session cache, keyed by `session_id`.
-- `schick_sid` httpOnly cookie carries the session id.
+- `schick_sid` httpOnly cookie carries the session id; the browser never sees the refresh token.
 - `POST /auth/session/login`, `/auth/session/refresh`, `/auth/session/logout`, `GET /auth/session/me` proxy auth to the gateway and manage the session cookie.
 - `authedFetch` attaches `Authorization: Bearer <token>` and retries once via `/auth/session/refresh` on 401.
 
