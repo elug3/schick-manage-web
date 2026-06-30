@@ -8,10 +8,16 @@ function pruneExpired() {
         }
     }
 }
-export function createSession(refreshToken, email) {
+export function createSession(refreshToken, email, userId, roles = []) {
     pruneExpired();
     const sessionId = crypto.randomUUID();
-    sessions.set(sessionId, { refreshToken, email, createdAt: Date.now() });
+    sessions.set(sessionId, {
+        refreshToken,
+        email,
+        userId,
+        roles,
+        createdAt: Date.now(),
+    });
     return sessionId;
 }
 export function getSession(sessionId) {

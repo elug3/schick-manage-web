@@ -1,6 +1,8 @@
 interface SessionRecord {
   refreshToken: string;
   email: string;
+  userId: string;
+  roles: string[];
   createdAt: number;
 }
 
@@ -17,10 +19,21 @@ function pruneExpired(): void {
   }
 }
 
-export function createSession(refreshToken: string, email: string): string {
+export function createSession(
+  refreshToken: string,
+  email: string,
+  userId: string,
+  roles: string[] = []
+): string {
   pruneExpired();
   const sessionId = crypto.randomUUID();
-  sessions.set(sessionId, { refreshToken, email, createdAt: Date.now() });
+  sessions.set(sessionId, {
+    refreshToken,
+    email,
+    userId,
+    roles,
+    createdAt: Date.now(),
+  });
   return sessionId;
 }
 

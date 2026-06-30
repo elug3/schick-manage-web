@@ -53,7 +53,11 @@ export async function getMe() {
     if (!res.ok)
         return null;
     const body = (await res.json());
-    return { id: "", email: body.email };
+    return {
+        id: body.user_id ?? "",
+        email: body.email,
+        role: body.roles?.[0],
+    };
 }
 async function errorMessage(res, fallback) {
     try {

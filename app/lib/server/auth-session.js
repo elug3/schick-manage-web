@@ -1,4 +1,4 @@
-import { backendPost } from "./backend";
+import { backendGet, backendPost, serviceUrl } from "./backend";
 import { clearSessionCookieHeader, getSessionId, setSessionCookieHeader, } from "./session-cookie";
 import { createSession, deleteSession, getRefreshToken, getSession, } from "./session-store";
 function jsonResponse(body, init = {}) {
@@ -23,6 +23,12 @@ async function exchangeRefreshToken(refreshToken) {
         return null;
     const body = (await res.json());
     return { accessToken: body.token };
+}
+async function fetchAuthProfile(accessToken) {
+    const res = await backendGet("auth", "/api/v1/auth/me", accessToken);
+    if (!res.ok)
+        return null;
+    return res.json();
 }
 export async function handleSessionLogin(request) {
     let email;
@@ -49,7 +55,12 @@ export async function handleSessionLogin(request) {
     if (!exchanged) {
         return jsonResponse({ error: "Failed to establish session" }, { status: 502 });
     }
-    const sessionId = createSession(refresh_token, email);
+    const profile = (await fetchAuthProfile(exchanged.accessToken)) ?? {
+        user_id: "",
+        email,
+        roles: [],
+    };
+    const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.roles ?? []);
     return jsonResponse({ access_token: exchanged.accessToken }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId) } });
 }
 export async function handleSessionRefresh(request) {
@@ -77,7 +88,12 @@ export async function handleSessionRefresh(request) {
 export async function handleSessionLogout(request) {
     const sessionId = getSessionId(request);
     if (sessionId) {
-        await backendPost("auth", "/api/v1/auth/logout").catch(() => { });
+        const refreshToken = getRefreshToken(sessionId);
+        if (refreshToken) {
+            await backendPost("auth", "/api/v1/auth/logout", {
+                refresh_token: refreshToken,
+            }).catch(() => { });
+        }
         deleteSession(sessionId);
     }
     return new Response(null, {
@@ -97,5 +113,41 @@ export async function handleSessionMe(request) {
             headers: { "Set-Cookie": clearSessionCookieHeader() },
         });
     }
-    return jsonResponse({ email: session.email });
+    return jsonResponse({
+        email: session.email,
+        user_id: session.userId,
+        roles: session.roles,
+    });
+}
+/** Server-side register proxy using optional service account token. */
+export async function handleSessionRegister(request) {
+    const serviceToken = process.env.SCHICK_SERVICE_TOKEN;
+    if (!serviceToken) {
+        return jsonResponse({ error: "Registration is unavailable: SCHICK_SERVICE_TOKEN is not configured" }, { status: 503 });
+    }
+    let body;
+    try {
+        body = (await request.json());
+    }
+    catch {
+        return jsonResponse({ error: "Invalid request body" }, { status: 400 });
+    }
+    if (!body.email || !body.password) {
+        return jsonResponse({ error: "Email and password are required" }, {
+            status: 400,
+        });
+    }
+    const res = await fetch(serviceUrl("auth", "/api/v1/auth/register"), {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceToken}`,
+        },
+        body: JSON.stringify({ email: body.email, password: body.password }),
+    });
+    if (!res.ok) {
+        return jsonResponse({ error: await readError(res, "Failed to register user") }, { status: res.status });
+    }
+    const data = (await res.json());
+    return jsonResponse({ user_id: data.user_id }, { status: 201 });
 }

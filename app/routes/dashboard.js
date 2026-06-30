@@ -12,7 +12,7 @@ export default function Dashboard() {
     useEffect(() => {
         Promise.all([
             getProducts().catch(() => []),
-            getOrders().then((o) => o.slice(0, 5)),
+            getOrders().catch(() => []).then((o) => o.slice(0, 5)),
         ]).then(([prods, orders]) => {
             setProducts(prods);
             setRecentOrders(orders);

@@ -30,7 +30,11 @@ export async function backendPost(
 
 export async function backendGet(
   service: Service,
-  path: string
+  path: string,
+  accessToken?: string
 ): Promise<Response> {
-  return fetch(serviceUrl(service, path));
+  const headers = accessToken
+    ? { Authorization: `Bearer ${accessToken}` }
+    : undefined;
+  return fetch(serviceUrl(service, path), { headers });
 }

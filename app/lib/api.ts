@@ -3,7 +3,6 @@ import {
   inventoryPath,
   orderPath,
   productPath,
-  authPath,
 } from "./gateway";
 
 // ── Product catalog (read-only search) ───────────────────────────────────────
@@ -125,12 +124,14 @@ export async function searchProducts(
   }
 
   const query = params.toString();
-  const res = await authedFetch(
-    productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`)
+  const res = await fetch(
+    productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`),
+    { headers: { Accept: "application/json" } }
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to search products"));
   const data = (await res.json()) as ProductSearchResponse;
-  return (data.results ?? []).map((hit, i) => mapSearchHit(hit, category, i));
+  const results = Array.isArray(data.results) ? data.results : [];
+  return results.map((hit, i) => mapSearchHit(hit, category, i));
 }
 
 export async function getProducts(category = "bags"): Promise<Product[]> {
@@ -172,10 +173,12 @@ export interface OrdersResponse {
 }
 
 export async function getOrders(customerId?: string): Promise<Order[]> {
-  const query = customerId
-    ? `?customer_id=${encodeURIComponent(customerId)}`
-    : "";
-  const res = await authedFetch(orderPath(`/api/v1/orders${query}`));
+  // The order service requires customer_id; there is no list-all endpoint yet.
+  if (!customerId) return [];
+
+  const res = await authedFetch(
+    orderPath(`/api/v1/orders?customer_id=${encodeURIComponent(customerId)}`)
+  );
   if (!res.ok) throw new Error(await readError(res, "Failed to fetch orders"));
   const data = (await res.json()) as OrdersResponse;
   return data.orders ?? [];
@@ -255,9 +258,10 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<{ user_id: string }> {
-  const res = await fetch(authPath("/api/v1/auth/register"), {
+  const res = await fetch("/auth/session/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error(await readError(res, "Failed to register user"));
