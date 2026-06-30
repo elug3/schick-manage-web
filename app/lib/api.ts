@@ -91,37 +91,49 @@ async function readError(res: Response, fallback: string): Promise<string> {
   }
 }
 
+const BAG_FILTERS = ["brand", "color", "material"] as const;
+const SUPPORTED_CATEGORIES = ["bags"] as const;
+
 export async function getCategories(): Promise<string[]> {
-  const res = await authedFetch(productPath("/api/categories"));
-  if (!res.ok) throw new Error(await readError(res, "Failed to fetch categories"));
-  const data = (await res.json()) as { categories: string[] };
-  return data.categories;
+  return [...SUPPORTED_CATEGORIES];
 }
 
 export async function getFilters(
   category: string
 ): Promise<{ category: string; filters: string[] }> {
-  const res = await authedFetch(
-    productPath(`/api/filters?category=${encodeURIComponent(category)}`)
-  );
-  if (!res.ok) throw new Error(await readError(res, "Failed to fetch filters"));
-  return res.json() as Promise<{ category: string; filters: string[] }>;
+  if (
+    !SUPPORTED_CATEGORIES.includes(
+      category.toLowerCase() as (typeof SUPPORTED_CATEGORIES)[number]
+    )
+  ) {
+    return { category, filters: [] };
+  }
+
+  return { category, filters: [...BAG_FILTERS] };
 }
 
 export async function searchProducts(
   category: string,
   filters: Record<string, string> = {}
 ): Promise<Product[]> {
-  const params = new URLSearchParams({ category, ...filters });
+  if (category.toLowerCase() !== "bags") return [];
+
+  const params = new URLSearchParams();
+  for (const key of BAG_FILTERS) {
+    const value = filters[key]?.trim();
+    if (value) params.set(key, value);
+  }
+
+  const query = params.toString();
   const res = await authedFetch(
-    productPath(`/api/products/search?${params.toString()}`)
+    productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`)
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to search products"));
   const data = (await res.json()) as ProductSearchResponse;
   return (data.results ?? []).map((hit, i) => mapSearchHit(hit, category, i));
 }
 
-export async function getProducts(category = "shoes"): Promise<Product[]> {
+export async function getProducts(category = "bags"): Promise<Product[]> {
   return searchProducts(category);
 }
 

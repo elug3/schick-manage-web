@@ -13,7 +13,7 @@ export function meta() {
 
 export default function Products() {
   const [categories, setCategories] = useState<string[]>([...PRODUCT_CATEGORIES]);
-  const [activeCategory, setActiveCategory] = useState("shoes");
+  const [activeCategory, setActiveCategory] = useState("bags");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
