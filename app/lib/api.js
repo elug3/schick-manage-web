@@ -230,12 +230,34 @@ export async function adjustInventory(sku, delta) {
         throw new Error(await readError(res, "Failed to adjust stock"));
     return res.json();
 }
+// ── Auth (users) ─────────────────────────────────────────────────────────────
+export const MANAGER_ROLES = [
+    "owner",
+    "admin",
+    "user_manager",
+    "customer_registrar",
+    "product_manager",
+];
+export const ALL_ROLES = [...MANAGER_ROLES, "customer"];
+export function isManagerUser(user) {
+    return user.roles.some((role) => MANAGER_ROLES.includes(role));
+}
+export function isCustomerUser(user) {
+    return user.roles.includes("customer");
+}
+export function formatRoles(roles) {
+    return roles.length > 0 ? roles.join(", ") : "—";
+}
 export async function listUsers() {
     const res = await authedFetch(authPath("/api/v1/auth/users"));
     if (!res.ok)
         throw new Error(await readError(res, "Failed to list users"));
     const data = (await res.json());
     return data.users ?? [];
+}
+export async function getUserById(userId) {
+    const users = await listUsers();
+    return users.find((user) => user.user_id === userId) ?? null;
 }
 export async function registerUser(email, password) {
     const res = await fetch("/auth/session/register", {
@@ -246,6 +268,35 @@ export async function registerUser(email, password) {
     });
     if (!res.ok)
         throw new Error(await readError(res, "Failed to register user"));
+    return res.json();
+}
+export async function setUserRoles(userId, roles) {
+    const res = await authedFetch(authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/roles`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roles }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to update roles"));
+    return res.json();
+}
+export async function setUserPassword(userId, password) {
+    const res = await authedFetch(authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/password`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to update password"));
+}
+export async function setUserStatus(userId, isActive) {
+    const res = await authedFetch(authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/status`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: isActive }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to update status"));
     return res.json();
 }
 export async function getDashboardStats() {

@@ -428,11 +428,39 @@ export async function adjustInventory(
 
 // ── Auth (users) ─────────────────────────────────────────────────────────────
 
+export const MANAGER_ROLES = [
+  "owner",
+  "admin",
+  "user_manager",
+  "customer_registrar",
+  "product_manager",
+] as const;
+
+export const ALL_ROLES = [...MANAGER_ROLES, "customer"] as const;
+
+export type AuthRole = (typeof ALL_ROLES)[number];
+
 export interface AuthUser {
   user_id: string;
   email: string;
   roles: string[];
   is_active: boolean;
+  locked_at: string | null;
+  failed_login_attempts: number;
+}
+
+export function isManagerUser(user: AuthUser): boolean {
+  return user.roles.some((role) =>
+    (MANAGER_ROLES as readonly string[]).includes(role)
+  );
+}
+
+export function isCustomerUser(user: AuthUser): boolean {
+  return user.roles.includes("customer");
+}
+
+export function formatRoles(roles: string[]): string {
+  return roles.length > 0 ? roles.join(", ") : "—";
 }
 
 export async function listUsers(): Promise<AuthUser[]> {
@@ -440,6 +468,11 @@ export async function listUsers(): Promise<AuthUser[]> {
   if (!res.ok) throw new Error(await readError(res, "Failed to list users"));
   const data = (await res.json()) as { users?: AuthUser[] };
   return data.users ?? [];
+}
+
+export async function getUserById(userId: string): Promise<AuthUser | null> {
+  const users = await listUsers();
+  return users.find((user) => user.user_id === userId) ?? null;
 }
 
 export async function registerUser(
@@ -454,6 +487,53 @@ export async function registerUser(
   });
   if (!res.ok) throw new Error(await readError(res, "Failed to register user"));
   return res.json() as Promise<{ user_id: string }>;
+}
+
+export async function setUserRoles(
+  userId: string,
+  roles: string[]
+): Promise<AuthUser> {
+  const res = await authedFetch(
+    authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/roles`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to update roles"));
+  return res.json() as Promise<AuthUser>;
+}
+
+export async function setUserPassword(
+  userId: string,
+  password: string
+): Promise<void> {
+  const res = await authedFetch(
+    authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/password`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to update password"));
+}
+
+export async function setUserStatus(
+  userId: string,
+  isActive: boolean
+): Promise<AuthUser> {
+  const res = await authedFetch(
+    authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/status`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: isActive }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to update status"));
+  return res.json() as Promise<AuthUser>;
 }
 
 // ── Dashboard / Analytics ──────────────────────────────────────────────────────

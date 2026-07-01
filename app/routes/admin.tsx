@@ -141,7 +141,7 @@ export default function AdminLayout() {
             <SidebarLink to="/orders" icon={<OrdersIcon />} label="Orders" onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/coupons" icon={<CouponsIcon />} label="Coupons" onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/analytics" icon={<AnalyticsIcon />} label="Analytics" onNavigate={() => setSidebarOpen(false)} />
-            <SidebarLink to="/users" icon={<UsersIcon />} label="Register" onNavigate={() => setSidebarOpen(false)} />
+            <SidebarLink to="/users" icon={<UsersIcon />} label="Users" onNavigate={() => setSidebarOpen(false)} />
           </div>
 
           <div className="mt-4 border-t border-white/10 pt-4">
