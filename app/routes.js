@@ -19,6 +19,8 @@ export default [
         route("coupons", "routes/coupons.tsx"),
         route("analytics", "routes/analytics.tsx"),
         route("users", "routes/users.tsx"),
+        route("users/new", "routes/users.new.tsx"),
+        route("users/:id", "routes/users.$id.tsx"),
         route("settings", "routes/settings.tsx"),
     ]),
 ];
