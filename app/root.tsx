@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import "./app.css";
+import { NotificationProvider } from "~/lib/notifications";
 
 export const links = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -48,7 +49,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <NotificationProvider>
+      <Outlet />
+    </NotificationProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
