@@ -8,7 +8,7 @@ import {
 import { OrderStatusBadge } from "./dashboard";
 
 export function meta() {
-  return [{ title: "Orders | Schick Admin" }];
+  return [{ title: "Orders | Dupli1 Admin" }];
 }
 
 const STATUS_TABS: { label: string; value: OrderStatus | "all" }[] = [

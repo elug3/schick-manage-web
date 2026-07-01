@@ -22,20 +22,20 @@ function post(url: string, body?: unknown): Promise<Response> {
 
 function readAccessToken(): string | null {
   try {
-    return localStorage.getItem("schick_at");
+    return localStorage.getItem("dupli1_at");
   } catch {
     return null;
   }
 }
 
 function storeAccessToken(accessToken: string): void {
-  localStorage.setItem("schick_at", accessToken);
+  localStorage.setItem("dupli1_at", accessToken);
 }
 
 export function clearTokens(): void {
   try {
-    localStorage.removeItem("schick_at");
-    localStorage.removeItem("schick_rt");
+    localStorage.removeItem("dupli1_at");
+    localStorage.removeItem("dupli1_rt");
   } catch {
     // no-op in SSR
   }

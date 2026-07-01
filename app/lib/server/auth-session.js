@@ -61,7 +61,7 @@ export async function handleSessionLogin(request) {
         roles: [],
     };
     const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.roles ?? []);
-    return jsonResponse({ access_token: exchanged.accessToken }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId) } });
+    return jsonResponse({ access_token: exchanged.accessToken, email }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } });
 }
 export async function handleSessionRefresh(request) {
     const sessionId = getSessionId(request);
@@ -72,7 +72,7 @@ export async function handleSessionRefresh(request) {
     if (!refreshToken) {
         return jsonResponse({ error: "Session expired" }, {
             status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader() },
+            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
         });
     }
     const exchanged = await exchangeRefreshToken(refreshToken);
@@ -80,7 +80,7 @@ export async function handleSessionRefresh(request) {
         deleteSession(sessionId);
         return jsonResponse({ error: "Session expired" }, {
             status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader() },
+            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
         });
     }
     return jsonResponse({ access_token: exchanged.accessToken });
@@ -98,7 +98,7 @@ export async function handleSessionLogout(request) {
     }
     return new Response(null, {
         status: 204,
-        headers: { "Set-Cookie": clearSessionCookieHeader() },
+        headers: { "Set-Cookie": clearSessionCookieHeader(request) },
     });
 }
 export async function handleSessionMe(request) {
@@ -110,7 +110,7 @@ export async function handleSessionMe(request) {
     if (!session) {
         return jsonResponse({ error: "Session expired" }, {
             status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader() },
+            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
         });
     }
     return jsonResponse({
@@ -121,9 +121,9 @@ export async function handleSessionMe(request) {
 }
 /** Server-side register proxy using optional service account token. */
 export async function handleSessionRegister(request) {
-    const serviceToken = process.env.SCHICK_SERVICE_TOKEN;
+    const serviceToken = process.env.DUPLI1_SERVICE_TOKEN;
     if (!serviceToken) {
-        return jsonResponse({ error: "Registration is unavailable: SCHICK_SERVICE_TOKEN is not configured" }, { status: 503 });
+        return jsonResponse({ error: "Registration is unavailable: DUPLI1_SERVICE_TOKEN is not configured" }, { status: 503 });
     }
     let body;
     try {

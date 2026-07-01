@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { type Order, type Product, getOrders, getProducts } from "~/lib/api";
 
 export function meta() {
-  return [{ title: "Dashboard | Schick Admin" }];
+  return [{ title: "Dashboard | Dupli1 Admin" }];
 }
 
 export default function Dashboard() {

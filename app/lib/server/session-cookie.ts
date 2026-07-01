@@ -1,4 +1,4 @@
-export const SESSION_COOKIE = "schick_sid";
+export const SESSION_COOKIE = "dupli1_sid";
 
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 

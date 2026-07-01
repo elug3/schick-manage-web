@@ -5,8 +5,8 @@
 import { chromium } from "playwright";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:5173";
-const EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@schick.com";
-const PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "SchickAdmin2026!";
+const EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@dupli1.com";
+const PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "Dupli1Admin2026!";
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
@@ -27,7 +27,7 @@ async function main() {
 
   await page.waitForSelector("text=Dashboard", { timeout: 10000 });
 
-  const token = await page.evaluate(() => localStorage.getItem("schick_at"));
+  const token = await page.evaluate(() => localStorage.getItem("dupli1_at"));
   if (!token) throw new Error("Access token not stored in localStorage");
 
   console.log("PASS: Browser redirected to dashboard after login");

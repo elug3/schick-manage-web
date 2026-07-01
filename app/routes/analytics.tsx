@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { type AnalyticsSummary, getAnalytics } from "~/lib/api";
 
 export function meta() {
-  return [{ title: "Analytics | Schick Admin" }];
+  return [{ title: "Analytics | Dupli1 Admin" }];
 }
 
 export default function Analytics() {

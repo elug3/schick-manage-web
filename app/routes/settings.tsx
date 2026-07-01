@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNotify } from "~/lib/notifications";
 
 export function meta() {
-  return [{ title: "Settings | Schick Admin" }];
+  return [{ title: "Settings | Dupli1 Admin" }];
 }
 
 type NotifKey =
@@ -29,8 +29,8 @@ interface NotifConfig {
 }
 
 const defaultSite: SiteConfig = {
-  storeName: "Schick",
-  contactEmail: "admin@schick.co",
+  storeName: "Dupli1",
+  contactEmail: "admin@dupli1.co",
   currency: "USD",
   timezone: "America/New_York",
   maintenanceMode: false,

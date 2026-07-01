@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 
 export function meta() {
-  return [{ title: "New Product | Schick Admin" }];
+  return [{ title: "New Product | Dupli1 Admin" }];
 }
 
 export default function NewProduct() {
