@@ -66,8 +66,16 @@ export async function getMe(): Promise<User | null> {
   }
 
   if (!res.ok) return null;
-  const body = (await res.json()) as { email: string };
-  return { id: "", email: body.email };
+  const body = (await res.json()) as {
+    email: string;
+    user_id?: string;
+    roles?: string[];
+  };
+  return {
+    id: body.user_id ?? "",
+    email: body.email,
+    role: body.roles?.[0],
+  };
 }
 
 async function errorMessage(res: Response, fallback: string): Promise<string> {

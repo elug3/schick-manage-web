@@ -10,6 +10,11 @@ export default [
   route("auth/session/refresh", "routes/auth.session.refresh.tsx"),
   route("auth/session/logout", "routes/auth.session.logout.tsx"),
   route("auth/session/me", "routes/auth.session.me.tsx"),
+  route("auth/session/register", "routes/auth.session.register.tsx"),
+  route("auth/api/*", "routes/gateway.auth-api.tsx"),
+  route("product/*", "routes/gateway.product.tsx"),
+  route("inventory/*", "routes/gateway.inventory.tsx"),
+  route("order/*", "routes/gateway.order.tsx"),
   route("login", "routes/login.tsx"),
   layout("routes/admin.tsx", [
     index("routes/dashboard.tsx"),

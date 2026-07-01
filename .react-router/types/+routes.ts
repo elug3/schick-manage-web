@@ -26,6 +26,29 @@ type Pages = {
   "/auth/session/me": {
     params: {};
   };
+  "/auth/session/register": {
+    params: {};
+  };
+  "/auth/api/*": {
+    params: {
+      "*": string;
+    };
+  };
+  "/product/*": {
+    params: {
+      "*": string;
+    };
+  };
+  "/inventory/*": {
+    params: {
+      "*": string;
+    };
+  };
+  "/order/*": {
+    params: {
+      "*": string;
+    };
+  };
   "/login": {
     params: {};
   };
@@ -60,7 +83,7 @@ type Pages = {
 type RouteFiles = {
   "root.js": {
     id: "root";
-    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/login" | "/products" | "/products/new" | "/products/:id" | "/orders" | "/coupons" | "/analytics" | "/users" | "/settings";
+    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/auth/session/register" | "/auth/api/*" | "/product/*" | "/inventory/*" | "/order/*" | "/login" | "/products" | "/products/new" | "/products/:id" | "/orders" | "/coupons" | "/analytics" | "/users" | "/settings";
   };
   "routes/auth.session.login.tsx": {
     id: "routes/auth.session.login";
@@ -77,6 +100,26 @@ type RouteFiles = {
   "routes/auth.session.me.tsx": {
     id: "routes/auth.session.me";
     page: "/auth/session/me";
+  };
+  "routes/auth.session.register.tsx": {
+    id: "routes/auth.session.register";
+    page: "/auth/session/register";
+  };
+  "routes/gateway.auth-api.tsx": {
+    id: "routes/gateway.auth-api";
+    page: "/auth/api/*";
+  };
+  "routes/gateway.product.tsx": {
+    id: "routes/gateway.product";
+    page: "/product/*";
+  };
+  "routes/gateway.inventory.tsx": {
+    id: "routes/gateway.inventory";
+    page: "/inventory/*";
+  };
+  "routes/gateway.order.tsx": {
+    id: "routes/gateway.order";
+    page: "/order/*";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -130,6 +173,11 @@ type RouteModules = {
   "routes/auth.session.refresh": typeof import("./app/routes/auth.session.refresh.tsx");
   "routes/auth.session.logout": typeof import("./app/routes/auth.session.logout.tsx");
   "routes/auth.session.me": typeof import("./app/routes/auth.session.me.tsx");
+  "routes/auth.session.register": typeof import("./app/routes/auth.session.register.tsx");
+  "routes/gateway.auth-api": typeof import("./app/routes/gateway.auth-api.tsx");
+  "routes/gateway.product": typeof import("./app/routes/gateway.product.tsx");
+  "routes/gateway.inventory": typeof import("./app/routes/gateway.inventory.tsx");
+  "routes/gateway.order": typeof import("./app/routes/gateway.order.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/admin": typeof import("./app/routes/admin.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
