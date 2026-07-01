@@ -108,8 +108,8 @@ export async function handleSessionLogin(request: Request): Promise<Response> {
   );
 
   return jsonResponse(
-    { access_token: exchanged.accessToken },
-    { headers: { "Set-Cookie": setSessionCookieHeader(sessionId) } }
+    { access_token: exchanged.accessToken, email },
+    { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } }
   );
 }
 
@@ -123,7 +123,7 @@ export async function handleSessionRefresh(request: Request): Promise<Response> 
   if (!refreshToken) {
     return jsonResponse({ error: "Session expired" }, {
       status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader() },
+      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
     });
   }
 
@@ -132,7 +132,7 @@ export async function handleSessionRefresh(request: Request): Promise<Response> 
     deleteSession(sessionId);
     return jsonResponse({ error: "Session expired" }, {
       status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader() },
+      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
     });
   }
 
@@ -153,7 +153,7 @@ export async function handleSessionLogout(request: Request): Promise<Response> {
 
   return new Response(null, {
     status: 204,
-    headers: { "Set-Cookie": clearSessionCookieHeader() },
+    headers: { "Set-Cookie": clearSessionCookieHeader(request) },
   });
 }
 
@@ -167,7 +167,7 @@ export async function handleSessionMe(request: Request): Promise<Response> {
   if (!session) {
     return jsonResponse({ error: "Session expired" }, {
       status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader() },
+      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
     });
   }
 
