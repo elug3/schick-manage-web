@@ -18,6 +18,8 @@ The admin UI is **VPN-only** — it is not on the public ALB.
 2. Open **http://manage.dupli1.local:3000**
 3. Sign in with your admin credentials.
 
+The ECS task listens on **port 3000**. The VPC security group (`dupli1-ecs-sg`) must allow TCP 3000 from the WireGuard client subnet (`10.8.0.0/24`). Port 80 is used by the internal API gateway, not manage-web.
+
 Backend API traffic uses the internal gateway at `http://proxy.dupli1.local`.
 
 ## Other internal services
