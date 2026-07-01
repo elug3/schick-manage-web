@@ -3,7 +3,6 @@ import {
   inventoryPath,
   orderPath,
   productPath,
-  authPath,
 } from "./gateway";
 
 // ── Product catalog (read-only search) ───────────────────────────────────────
@@ -91,37 +90,51 @@ async function readError(res: Response, fallback: string): Promise<string> {
   }
 }
 
+const BAG_FILTERS = ["brand", "color", "material"] as const;
+const SUPPORTED_CATEGORIES = ["bags"] as const;
+
 export async function getCategories(): Promise<string[]> {
-  const res = await authedFetch(productPath("/api/categories"));
-  if (!res.ok) throw new Error(await readError(res, "Failed to fetch categories"));
-  const data = (await res.json()) as { categories: string[] };
-  return data.categories;
+  return [...SUPPORTED_CATEGORIES];
 }
 
 export async function getFilters(
   category: string
 ): Promise<{ category: string; filters: string[] }> {
-  const res = await authedFetch(
-    productPath(`/api/filters?category=${encodeURIComponent(category)}`)
-  );
-  if (!res.ok) throw new Error(await readError(res, "Failed to fetch filters"));
-  return res.json() as Promise<{ category: string; filters: string[] }>;
+  if (
+    !SUPPORTED_CATEGORIES.includes(
+      category.toLowerCase() as (typeof SUPPORTED_CATEGORIES)[number]
+    )
+  ) {
+    return { category, filters: [] };
+  }
+
+  return { category, filters: [...BAG_FILTERS] };
 }
 
 export async function searchProducts(
   category: string,
   filters: Record<string, string> = {}
 ): Promise<Product[]> {
-  const params = new URLSearchParams({ category, ...filters });
-  const res = await authedFetch(
-    productPath(`/api/products/search?${params.toString()}`)
+  if (category.toLowerCase() !== "bags") return [];
+
+  const params = new URLSearchParams();
+  for (const key of BAG_FILTERS) {
+    const value = filters[key]?.trim();
+    if (value) params.set(key, value);
+  }
+
+  const query = params.toString();
+  const res = await fetch(
+    productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`),
+    { headers: { Accept: "application/json" } }
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to search products"));
   const data = (await res.json()) as ProductSearchResponse;
-  return (data.results ?? []).map((hit, i) => mapSearchHit(hit, category, i));
+  const results = Array.isArray(data.results) ? data.results : [];
+  return results.map((hit, i) => mapSearchHit(hit, category, i));
 }
 
-export async function getProducts(category = "shoes"): Promise<Product[]> {
+export async function getProducts(category = "bags"): Promise<Product[]> {
   return searchProducts(category);
 }
 
@@ -160,10 +173,12 @@ export interface OrdersResponse {
 }
 
 export async function getOrders(customerId?: string): Promise<Order[]> {
-  const query = customerId
-    ? `?customer_id=${encodeURIComponent(customerId)}`
-    : "";
-  const res = await authedFetch(orderPath(`/api/v1/orders${query}`));
+  // The order service requires customer_id; there is no list-all endpoint yet.
+  if (!customerId) return [];
+
+  const res = await authedFetch(
+    orderPath(`/api/v1/orders?customer_id=${encodeURIComponent(customerId)}`)
+  );
   if (!res.ok) throw new Error(await readError(res, "Failed to fetch orders"));
   const data = (await res.json()) as OrdersResponse;
   return data.orders ?? [];
@@ -243,9 +258,10 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<{ user_id: string }> {
-  const res = await fetch(authPath("/api/v1/auth/register"), {
+  const res = await fetch("/auth/session/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error(await readError(res, "Failed to register user"));

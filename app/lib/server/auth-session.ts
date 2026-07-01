@@ -1,4 +1,4 @@
-import { backendPost } from "./backend";
+import { backendGet, backendPost, serviceUrl } from "./backend";
 import {
   clearSessionCookieHeader,
   getSessionId,
@@ -17,6 +17,12 @@ interface LoginResponse {
 
 interface RefreshResponse {
   token: string;
+}
+
+interface AuthMeResponse {
+  user_id: string;
+  email: string;
+  roles?: string[];
 }
 
 function jsonResponse(
@@ -46,6 +52,14 @@ async function exchangeRefreshToken(
   if (!res.ok) return null;
   const body = (await res.json()) as RefreshResponse;
   return { accessToken: body.token };
+}
+
+async function fetchAuthProfile(
+  accessToken: string
+): Promise<AuthMeResponse | null> {
+  const res = await backendGet("auth", "/api/v1/auth/me", accessToken);
+  if (!res.ok) return null;
+  return res.json() as Promise<AuthMeResponse>;
 }
 
 export async function handleSessionLogin(request: Request): Promise<Response> {
@@ -79,7 +93,19 @@ export async function handleSessionLogin(request: Request): Promise<Response> {
     return jsonResponse({ error: "Failed to establish session" }, { status: 502 });
   }
 
-  const sessionId = createSession(refresh_token, email);
+  const profile =
+    (await fetchAuthProfile(exchanged.accessToken)) ?? {
+      user_id: "",
+      email,
+      roles: [],
+    };
+
+  const sessionId = createSession(
+    refresh_token,
+    profile.email || email,
+    profile.user_id,
+    profile.roles ?? []
+  );
 
   return jsonResponse(
     { access_token: exchanged.accessToken },
@@ -116,7 +142,12 @@ export async function handleSessionRefresh(request: Request): Promise<Response> 
 export async function handleSessionLogout(request: Request): Promise<Response> {
   const sessionId = getSessionId(request);
   if (sessionId) {
-    await backendPost("auth", "/api/v1/auth/logout").catch(() => {});
+    const refreshToken = getRefreshToken(sessionId);
+    if (refreshToken) {
+      await backendPost("auth", "/api/v1/auth/logout", {
+        refresh_token: refreshToken,
+      }).catch(() => {});
+    }
     deleteSession(sessionId);
   }
 
@@ -140,5 +171,54 @@ export async function handleSessionMe(request: Request): Promise<Response> {
     });
   }
 
-  return jsonResponse({ email: session.email });
+  return jsonResponse({
+    email: session.email,
+    user_id: session.userId,
+    roles: session.roles,
+  });
+}
+
+/** Server-side register proxy using optional service account token. */
+export async function handleSessionRegister(
+  request: Request
+): Promise<Response> {
+  const serviceToken = process.env.SCHICK_SERVICE_TOKEN;
+  if (!serviceToken) {
+    return jsonResponse(
+      { error: "Registration is unavailable: SCHICK_SERVICE_TOKEN is not configured" },
+      { status: 503 }
+    );
+  }
+
+  let body: { email?: string; password?: string };
+  try {
+    body = (await request.json()) as { email?: string; password?: string };
+  } catch {
+    return jsonResponse({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (!body.email || !body.password) {
+    return jsonResponse({ error: "Email and password are required" }, {
+      status: 400,
+    });
+  }
+
+  const res = await fetch(serviceUrl("auth", "/api/v1/auth/register"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceToken}`,
+    },
+    body: JSON.stringify({ email: body.email, password: body.password }),
+  });
+
+  if (!res.ok) {
+    return jsonResponse(
+      { error: await readError(res, "Failed to register user") },
+      { status: res.status }
+    );
+  }
+
+  const data = (await res.json()) as { user_id: string };
+  return jsonResponse({ user_id: data.user_id }, { status: 201 });
 }

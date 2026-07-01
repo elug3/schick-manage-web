@@ -1,18 +1,13 @@
 const DEFAULT_GATEWAY_URL = "http://localhost:8080";
-const SERVICE_PREFIXES = {
-    auth: "/auth",
-    product: "/product",
-    inventory: "/inventory",
-    order: "/order",
-};
 function gatewayBase() {
-    return (process.env.SCHICK_GATEWAY_URL ?? DEFAULT_GATEWAY_URL).replace(/\/$/, "");
+    return (process.env.SCHICK_GATEWAY_URL ??
+        process.env.SCHICK_API_BASE_URL ??
+        DEFAULT_GATEWAY_URL).replace(/\/$/, "");
 }
-/** Build a gateway URL; nginx strips the service prefix before proxying upstream. */
-export function serviceUrl(service, path) {
-    const prefix = SERVICE_PREFIXES[service];
+/** Build an upstream URL for server-side API calls through the gateway proxy. */
+export function serviceUrl(_service, path) {
     const normalized = path.startsWith("/") ? path : `/${path}`;
-    return `${gatewayBase()}${prefix}${normalized}`;
+    return `${gatewayBase()}${normalized}`;
 }
 export async function backendPost(service, path, body) {
     return fetch(serviceUrl(service, path), {
@@ -21,6 +16,9 @@ export async function backendPost(service, path, body) {
         body: body ? JSON.stringify(body) : undefined,
     });
 }
-export async function backendGet(service, path) {
-    return fetch(serviceUrl(service, path));
+export async function backendGet(service, path, accessToken) {
+    const headers = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined;
+    return fetch(serviceUrl(service, path), { headers });
 }

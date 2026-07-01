@@ -1,5 +1,5 @@
 import { authedFetch } from "./auth";
-import { inventoryPath, orderPath, productPath, authPath, } from "./gateway";
+import { inventoryPath, orderPath, productPath, } from "./gateway";
 // ── Product catalog (read-only search) ───────────────────────────────────────
 export const PRODUCT_CATEGORIES = [
     "consultations",
@@ -50,28 +50,35 @@ async function readError(res, fallback) {
         return fallback;
     }
 }
+const BAG_FILTERS = ["brand", "color", "material"];
+const SUPPORTED_CATEGORIES = ["bags"];
 export async function getCategories() {
-    const res = await authedFetch(productPath("/api/categories"));
-    if (!res.ok)
-        throw new Error(await readError(res, "Failed to fetch categories"));
-    const data = (await res.json());
-    return data.categories;
+    return [...SUPPORTED_CATEGORIES];
 }
 export async function getFilters(category) {
-    const res = await authedFetch(productPath(`/api/filters?category=${encodeURIComponent(category)}`));
-    if (!res.ok)
-        throw new Error(await readError(res, "Failed to fetch filters"));
-    return res.json();
+    if (!SUPPORTED_CATEGORIES.includes(category.toLowerCase())) {
+        return { category, filters: [] };
+    }
+    return { category, filters: [...BAG_FILTERS] };
 }
 export async function searchProducts(category, filters = {}) {
-    const params = new URLSearchParams({ category, ...filters });
-    const res = await authedFetch(productPath(`/api/products/search?${params.toString()}`));
+    if (category.toLowerCase() !== "bags")
+        return [];
+    const params = new URLSearchParams();
+    for (const key of BAG_FILTERS) {
+        const value = filters[key]?.trim();
+        if (value)
+            params.set(key, value);
+    }
+    const query = params.toString();
+    const res = await fetch(productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`), { headers: { Accept: "application/json" } });
     if (!res.ok)
         throw new Error(await readError(res, "Failed to search products"));
     const data = (await res.json());
-    return (data.results ?? []).map((hit, i) => mapSearchHit(hit, category, i));
+    const results = Array.isArray(data.results) ? data.results : [];
+    return results.map((hit, i) => mapSearchHit(hit, category, i));
 }
-export async function getProducts(category = "shoes") {
+export async function getProducts(category = "bags") {
     return searchProducts(category);
 }
 export async function getProduct(category, id) {
@@ -79,10 +86,10 @@ export async function getProduct(category, id) {
     return products.find((p) => p.id === id || p.sku === id) ?? null;
 }
 export async function getOrders(customerId) {
-    const query = customerId
-        ? `?customer_id=${encodeURIComponent(customerId)}`
-        : "";
-    const res = await authedFetch(orderPath(`/api/v1/orders${query}`));
+    // The order service requires customer_id; there is no list-all endpoint yet.
+    if (!customerId)
+        return [];
+    const res = await authedFetch(orderPath(`/api/v1/orders?customer_id=${encodeURIComponent(customerId)}`));
     if (!res.ok)
         throw new Error(await readError(res, "Failed to fetch orders"));
     const data = (await res.json());
@@ -132,9 +139,10 @@ export async function adjustInventory(sku, delta) {
 }
 // ── Auth (register) ──────────────────────────────────────────────────────────
 export async function registerUser(email, password) {
-    const res = await fetch(authPath("/api/v1/auth/register"), {
+    const res = await fetch("/auth/session/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
     });
     if (!res.ok)
