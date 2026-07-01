@@ -9,19 +9,19 @@ function post(url, body) {
 }
 function readAccessToken() {
     try {
-        return localStorage.getItem("schick_at");
+        return localStorage.getItem("dupli1_at");
     }
     catch {
         return null;
     }
 }
 function storeAccessToken(accessToken) {
-    localStorage.setItem("schick_at", accessToken);
+    localStorage.setItem("dupli1_at", accessToken);
 }
 export function clearTokens() {
     try {
-        localStorage.removeItem("schick_at");
-        localStorage.removeItem("schick_rt");
+        localStorage.removeItem("dupli1_at");
+        localStorage.removeItem("dupli1_rt");
     }
     catch {
         // no-op in SSR
@@ -73,8 +73,12 @@ export async function login(email, password) {
     if (!res.ok)
         throw new Error(await errorMessage(res, "Login failed"));
     const body = (await res.json());
+    if (!body.access_token) {
+        throw new Error("Login failed: missing access token");
+    }
     clearTokens();
     storeAccessToken(body.access_token);
+    return { id: "", email: body.email ?? email };
 }
 export async function authedFetch(url, init = {}) {
     let accessToken = readAccessToken();

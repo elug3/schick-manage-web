@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Minimal Schick auth gateway mock for local login testing.
+ * Minimal Dupli1 auth gateway mock for local login testing.
  * Listens on :8080 and serves /auth/api/v1/auth/{login,refresh,logout}.
  */
 import http from "node:http";
 
 const PORT = Number(process.env.MOCK_GATEWAY_PORT ?? 8080);
-const VALID_EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@schick.com";
-const VALID_PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "SchickAdmin2026!";
+const VALID_EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@dupli1.com";
+const VALID_PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "Dupli1Admin2026!";
 const REFRESH_TOKEN = "mock-refresh-token";
 const ACCESS_TOKEN = "mock-access-token";
 

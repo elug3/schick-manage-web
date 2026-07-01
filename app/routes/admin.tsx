@@ -117,7 +117,7 @@ export default function AdminLayout() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-bold leading-tight text-white">
-              Schick
+              Dupli1
             </div>
             <div className="text-[10px] font-medium uppercase tracking-widest text-[#7B70A8]">
               Admin

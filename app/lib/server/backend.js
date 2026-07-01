@@ -1,7 +1,7 @@
 const DEFAULT_GATEWAY_URL = "http://localhost:8080";
 function gatewayBase() {
-    return (process.env.SCHICK_GATEWAY_URL ??
-        process.env.SCHICK_API_BASE_URL ??
+    return (process.env.DUPLI1_GATEWAY_URL ??
+        process.env.DUPLI1_API_BASE_URL ??
         DEFAULT_GATEWAY_URL).replace(/\/$/, "");
 }
 /** Build an upstream URL for server-side API calls through the gateway proxy. */

@@ -16,7 +16,7 @@ permissions:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: manage-web
-  ECS_SERVICE: schick-manage-web
+  ECS_SERVICE: dupli1-manage-web
   ECS_CLUSTER: production
   ECS_TASK_DEFINITION: .aws/task-definition.json
   CONTAINER_NAME: manage-web-container

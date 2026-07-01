@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { getProduct } from "~/lib/api";
 export function meta() {
-    return [{ title: "Product | Schick Admin" }];
+    return [{ title: "Product | Dupli1 Admin" }];
 }
 export default function ProductDetail() {
     const { id } = useParams();

@@ -4,8 +4,8 @@
  * Verifies session routes, cookies, and post-login dashboard access.
  */
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:5173";
-const EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@schick.com";
-const PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "SchickAdmin2026!";
+const EMAIL = process.env.MOCK_ADMIN_EMAIL ?? "admin@dupli1.com";
+const PASSWORD = process.env.MOCK_ADMIN_PASSWORD ?? "Dupli1Admin2026!";
 
 const cookieJar = new Map();
 
@@ -51,7 +51,7 @@ async function main() {
   const loginPage = await request("/login");
   if (loginPage.status !== 200) fail(`/login returned ${loginPage.status}`);
   const loginHtml = await loginPage.text();
-  if (!loginHtml.includes("Schick Admin")) fail("/login missing expected content");
+  if (!loginHtml.includes("Dupli1 Admin")) fail("/login missing expected content");
   pass("Login page loads");
 
   // 2. Session login API
@@ -67,7 +67,7 @@ async function main() {
   const loginBody = await loginRes.json();
   if (!loginBody.access_token) fail("Login response missing access_token");
   if (!loginBody.email) fail("Login response missing email");
-  if (!cookieJar.has("schick_sid")) fail("Login did not set schick_sid cookie");
+  if (!cookieJar.has("dupli1_sid")) fail("Login did not set dupli1_sid cookie");
   pass("Session login returns token, email, and session cookie");
 
   // 3. Session me with cookie

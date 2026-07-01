@@ -8,7 +8,7 @@ import {
 } from "~/lib/api";
 
 export function meta() {
-  return [{ title: "Products | Schick Admin" }];
+  return [{ title: "Products | Dupli1 Admin" }];
 }
 
 export default function Products() {

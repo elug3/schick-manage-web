@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getOrders, updateOrderStatus, } from "~/lib/api";
 import { OrderStatusBadge } from "./dashboard";
 export function meta() {
-    return [{ title: "Orders | Schick Admin" }];
+    return [{ title: "Orders | Dupli1 Admin" }];
 }
 const STATUS_TABS = [
     { label: "All", value: "all" },

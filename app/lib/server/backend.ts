@@ -4,8 +4,8 @@ type Service = "auth" | "product" | "inventory" | "order";
 
 function gatewayBase(): string {
   return (
-    process.env.SCHICK_GATEWAY_URL ??
-    process.env.SCHICK_API_BASE_URL ??
+    process.env.DUPLI1_GATEWAY_URL ??
+    process.env.DUPLI1_API_BASE_URL ??
     DEFAULT_GATEWAY_URL
   ).replace(/\/$/, "");
 }

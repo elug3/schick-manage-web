@@ -2,7 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
 import { getAnalytics } from "~/lib/api";
 export function meta() {
-    return [{ title: "Analytics | Schick Admin" }];
+    return [{ title: "Analytics | Dupli1 Admin" }];
 }
 export default function Analytics() {
     const [data, setData] = useState(null);

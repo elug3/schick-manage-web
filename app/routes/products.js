@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { PRODUCT_CATEGORIES, getCategories, searchProducts, } from "~/lib/api";
 export function meta() {
-    return [{ title: "Products | Schick Admin" }];
+    return [{ title: "Products | Dupli1 Admin" }];
 }
 export default function Products() {
     const [categories, setCategories] = useState([...PRODUCT_CATEGORIES]);

@@ -3,7 +3,7 @@ import { registerUser } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
 
 export function meta() {
-  return [{ title: "Users | Schick Admin" }];
+  return [{ title: "Users | Dupli1 Admin" }];
 }
 
 const inputCls =

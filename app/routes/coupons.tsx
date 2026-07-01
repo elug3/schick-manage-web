@@ -1,5 +1,5 @@
 export function meta() {
-  return [{ title: "Coupons | Schick Admin" }];
+  return [{ title: "Coupons | Dupli1 Admin" }];
 }
 
 export default function Coupons() {

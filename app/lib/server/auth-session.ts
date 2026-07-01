@@ -182,10 +182,10 @@ export async function handleSessionMe(request: Request): Promise<Response> {
 export async function handleSessionRegister(
   request: Request
 ): Promise<Response> {
-  const serviceToken = process.env.SCHICK_SERVICE_TOKEN;
+  const serviceToken = process.env.DUPLI1_SERVICE_TOKEN;
   if (!serviceToken) {
     return jsonResponse(
-      { error: "Registration is unavailable: SCHICK_SERVICE_TOKEN is not configured" },
+      { error: "Registration is unavailable: DUPLI1_SERVICE_TOKEN is not configured" },
       { status: 503 }
     );
   }

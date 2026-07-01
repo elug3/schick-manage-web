@@ -1,12 +1,12 @@
-# Schick Internal VPN (WireGuard)
+# Dupli1 Internal VPN (WireGuard)
 
-WireGuard VPN for accessing the Schick production VPC (`10.0.0.0/16`) from outside AWS.
+WireGuard VPN for accessing the Dupli1 production VPC (`10.0.0.0/16`) from outside AWS.
 
 ## Server
 
 | Property | Value |
 |---|---|
-| EC2 instance | `schick-internal-vpn` |
+| EC2 instance | `dupli1-internal-vpn` |
 | Endpoint | `13.218.131.226:51820` (UDP) |
 | VPN subnet | `10.8.0.0/24` |
 
@@ -15,17 +15,17 @@ WireGuard VPN for accessing the Schick production VPC (`10.0.0.0/16`) from outsi
 The admin UI is **VPN-only** — it is not on the public ALB.
 
 1. Connect your WireGuard tunnel.
-2. Open **http://manage.schick.local:3000**
+2. Open **http://manage.dupli1.local:3000**
 3. Sign in with your admin credentials.
 
-Backend API traffic uses the internal gateway at `http://proxy.schick.local`.
+Backend API traffic uses the internal gateway at `http://proxy.dupli1.local`.
 
 ## Other internal services
 
 | Service | URL (over VPN) |
 |---|---|
-| API gateway | `http://proxy.schick.local` |
-| Auth API | `http://proxy.schick.local/api/v1/auth/login` |
+| API gateway | `http://proxy.dupli1.local` |
+| Auth API | `http://proxy.dupli1.local/api/v1/auth/login` |
 
 ## Client config
 
@@ -40,16 +40,16 @@ Private subnets route `10.8.0.0/24` to the VPN instance so clients can reach int
 ## Client setup
 
 1. Install [WireGuard](https://www.wireguard.com/install/) on your machine.
-2. Copy `schick-internal.conf` into your WireGuard config directory:
+2. Copy `dupli1-internal.conf` into your WireGuard config directory:
    - **macOS (app):** Import tunnel via WireGuard app
-   - **Linux:** `/etc/wireguard/schick-internal.conf`
+   - **Linux:** `/etc/wireguard/dupli1-internal.conf`
    - **Windows:** Import via WireGuard app
 3. Activate the tunnel.
 
 ```bash
 # Linux example
-sudo cp schick-internal.conf /etc/wireguard/
-sudo wg-quick up schick-internal
+sudo cp dupli1-internal.conf /etc/wireguard/
+sudo wg-quick up dupli1-internal
 ```
 
 ## Verify connectivity
@@ -80,6 +80,6 @@ Add a matching `[Peer]` block to `/etc/wireguard/wg0.conf` on the server.
 
 ## Security
 
-- `schick-internal.conf` contains a private key and is gitignored.
+- `dupli1-internal.conf` contains a private key and is gitignored.
 - Do not commit client configs with real keys to the repository.
 - Rotate keys if a config file is exposed.

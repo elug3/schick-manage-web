@@ -4,7 +4,7 @@ import { login } from "~/lib/auth";
 import { useNotify } from "~/lib/notifications";
 
 export function meta() {
-  return [{ title: "Sign in | Schick Admin" }];
+  return [{ title: "Sign in | Dupli1 Admin" }];
 }
 
 export default function Login() {
@@ -46,7 +46,7 @@ export default function Login() {
             </svg>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-[#1C1B1F]">
-            Schick Admin
+            Dupli1 Admin
           </h1>
           <p className="mt-1 text-sm text-[#6B6480]">
             Sign in to your admin account
@@ -108,7 +108,7 @@ export default function Login() {
         </form>
 
         <p className="mt-6 text-center text-xs text-[#9D98B3]">
-          Schick Management Console · Admin access only
+          Dupli1 Management Console · Admin access only
         </p>
       </div>
     </div>
