@@ -15,7 +15,7 @@ WireGuard VPN for accessing private Schick production resources (`10.0.0.0/16`).
 The admin UI is **VPN-only** — it is not on the public ALB.
 
 1. Connect your WireGuard tunnel.
-2. Open **http://manage.schick.local:3000**
+2. Open **http://manage.schick.local**
 3. Sign in with your admin credentials.
 
 Backend API traffic uses the internal gateway at `http://proxy.schick.local`.
