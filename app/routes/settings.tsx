@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNotify } from "~/lib/notifications";
 
 export function meta() {
   return [{ title: "Settings | Schick Admin" }];
@@ -44,20 +45,18 @@ const defaultNotif: NotifConfig = {
 };
 
 export default function Settings() {
+  const { notify } = useNotify();
   const [site, setSite] = useState<SiteConfig>(defaultSite);
   const [notif, setNotif] = useState<NotifConfig>(defaultNotif);
   const [savingSite, setSavingSite] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
-  const [siteSuccess, setSiteSuccess] = useState(false);
-  const [notifSuccess, setNotifSuccess] = useState(false);
 
   async function saveSite(e: React.FormEvent) {
     e.preventDefault();
     setSavingSite(true);
     await new Promise((r) => setTimeout(r, 600));
     setSavingSite(false);
-    setSiteSuccess(true);
-    setTimeout(() => setSiteSuccess(false), 3000);
+    notify("Settings saved successfully");
   }
 
   async function saveNotif(e: React.FormEvent) {
@@ -65,8 +64,7 @@ export default function Settings() {
     setSavingNotif(true);
     await new Promise((r) => setTimeout(r, 500));
     setSavingNotif(false);
-    setNotifSuccess(true);
-    setTimeout(() => setNotifSuccess(false), 3000);
+    notify("Notification preferences saved");
   }
 
   function toggleNotif(key: NotifKey) {
@@ -161,7 +159,7 @@ export default function Settings() {
             />
           </div>
 
-          <div className="flex items-center gap-3 pt-1">
+          <div className="pt-1">
             <button
               type="submit"
               disabled={savingSite}
@@ -169,18 +167,6 @@ export default function Settings() {
             >
               {savingSite ? "Saving…" : "Save changes"}
             </button>
-            {siteSuccess && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <svg className="size-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Saved
-              </span>
-            )}
           </div>
         </form>
       </Section>
@@ -235,7 +221,7 @@ export default function Settings() {
             </div>
           ))}
 
-          <div className="flex items-center gap-3 pt-1">
+          <div className="pt-1">
             <button
               type="submit"
               disabled={savingNotif}
@@ -243,18 +229,6 @@ export default function Settings() {
             >
               {savingNotif ? "Saving…" : "Save preferences"}
             </button>
-            {notifSuccess && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <svg className="size-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Saved
-              </span>
-            )}
           </div>
         </form>
       </Section>

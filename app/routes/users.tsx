@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { registerUser } from "~/lib/api";
+import { useNotify } from "~/lib/notifications";
 
 export function meta() {
   return [{ title: "Users | Schick Admin" }];
@@ -9,24 +10,24 @@ const inputCls =
   "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition placeholder:text-[#B4B0C8] focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
 
 export default function Users() {
+  const { notify } = useNotify();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setCreatedId(null);
     setLoading(true);
     try {
       const result = await registerUser(email, password);
-      setCreatedId(result.user_id);
       setEmail("");
       setPassword("");
+      notify(`User created: ${result.user_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      notify(
+        err instanceof Error ? err.message : "Registration failed",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -73,16 +74,6 @@ export default function Users() {
             className={inputCls}
           />
         </div>
-
-        {error && (
-          <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
-        )}
-
-        {createdId && (
-          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            User created: <span className="font-mono">{createdId}</span>
-          </div>
-        )}
 
         <button
           type="submit"

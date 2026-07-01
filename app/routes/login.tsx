@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { login } from "~/lib/auth";
+import { useNotify } from "~/lib/notifications";
 
 export function meta() {
   return [{ title: "Sign in | Schick Admin" }];
@@ -8,20 +9,22 @@ export function meta() {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { notify } = useNotify();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
     try {
       const user = await login(email, password);
       navigate("/", { replace: true, state: { user } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      notify(
+        err instanceof Error ? err.message : "Something went wrong",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -93,19 +96,6 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
-
-            {error && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                <svg className="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {error}
-              </div>
-            )}
 
             <button
               type="submit"
