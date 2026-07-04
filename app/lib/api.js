@@ -72,6 +72,31 @@ export function formatVariantOption(variant) {
     const parts = [variant.color, variant.size].filter(Boolean);
     return parts.length > 0 ? parts.join(" / ") : variant.sku;
 }
+export function formatProductColors(product) {
+    if (product.availableColors && product.availableColors.length > 0) {
+        return product.availableColors.join(", ");
+    }
+    if (product.color)
+        return product.color;
+    return "—";
+}
+export function productVariantCount(product) {
+    if (product.variants && product.variants.length > 0) {
+        return product.variants.length;
+    }
+    return 1;
+}
+export function productListPrice(product) {
+    const value = product.priceFrom ?? product.price;
+    if (value == null)
+        return null;
+    const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+    }).format(value);
+    return product.priceFrom != null ? `From ${formatted}` : formatted;
+}
 export function mapProduct(hit, category, index = 0) {
     const variants = mapVariantsFromHit(hit);
     const defaultImageUrl = hitString(hit, "defaultImageUrl") ??
@@ -197,6 +222,58 @@ export async function uploadVariantImage(productId, sku, file) {
     const hit = (await res.json());
     return mapVariant(hit);
 }
+export async function createProductParent(input) {
+    const res = await authedFetch(productPath("/api/v1/products"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: input.name,
+            id: input.id,
+            brand: input.brand,
+            material: input.material,
+            category: input.category ?? "bags",
+            description: input.description,
+        }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create product"));
+    const hit = (await res.json());
+    return mapProduct(hit, input.category ?? "bags");
+}
+export async function createVariant(productId, input) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            color: input.color,
+            price: input.price,
+            size: input.size ?? "",
+            sku: input.sku,
+            status: input.status ?? "active",
+        }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create variant"));
+    const hit = (await res.json());
+    return mapVariant(hit);
+}
+export async function updateVariant(productId, sku, input) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(sku)}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to update variant"));
+    const hit = (await res.json());
+    return mapVariant(hit);
+}
+export async function deleteVariant(productId, sku) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(sku)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete variant"));
+}
+/** Legacy flat create (single SKU); prefer createProductParent + createVariant. */
 export async function createBagProduct(input) {
     const res = await authedFetch(productPath("/api/v1/products"), {
         method: "POST",
