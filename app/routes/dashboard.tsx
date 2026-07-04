@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { type Order, type Product, getOrders, getProducts } from "~/lib/api";
+import {
+  type Order,
+  type Product,
+  type VariantStockAlert,
+  getCatalogStockAlerts,
+  getOrders,
+  getProducts,
+} from "~/lib/api";
 
 export function meta() {
   return [{ title: "Dashboard | Dupli1 Admin" }];
@@ -8,15 +15,18 @@ export function meta() {
 
 export default function Dashboard() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [stockAlerts, setStockAlerts] = useState<VariantStockAlert[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       getProducts().catch(() => [] as Product[]),
+      getCatalogStockAlerts().catch(() => [] as VariantStockAlert[]),
       getOrders().catch(() => [] as Order[]).then((o) => o.slice(0, 5)),
-    ]).then(([prods, orders]) => {
+    ]).then(([prods, alerts, orders]) => {
       setProducts(prods);
+      setStockAlerts(alerts);
       setRecentOrders(orders);
       setLoading(false);
     });
@@ -30,7 +40,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2">
           <RecentOrdersTable orders={recentOrders} />
         </div>
-        <QuickPanel products={products} />
+        <QuickPanel stockAlerts={stockAlerts} />
       </div>
     </div>
   );
@@ -69,7 +79,6 @@ function StatsGrid({
   loading: boolean;
 }) {
   const active = products.length;
-  const outOfStock = products.filter((p) => (p.stock ?? 0) === 0).length;
 
   const cards = [
     {
@@ -89,7 +98,7 @@ function StatsGrid({
     {
       label: "Catalog items",
       value: loading ? "…" : String(active),
-      sub: loading ? null : "From product search",
+      sub: loading ? null : "Parent products (styles)",
       icon: <BoxIcon />,
       color: "bg-emerald-50 text-emerald-600",
     },
@@ -217,9 +226,16 @@ function RecentOrdersTable({ orders }: { orders: Order[] }) {
   );
 }
 
-function QuickPanel({ products }: { products: Product[] }) {
-  const outOfStock = products.filter((p) => (p.stock ?? 0) === 0);
-  const lowStock = products.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5);
+function QuickPanel({ stockAlerts }: { stockAlerts: VariantStockAlert[] }) {
+  const outOfStock = stockAlerts.filter((row) => row.quantity === 0);
+  const lowStock = stockAlerts.filter(
+    (row) => row.quantity > 0 && row.quantity <= 5
+  );
+
+  function alertLabel(row: VariantStockAlert): string {
+    const option = [row.color, row.size].filter(Boolean).join(" / ");
+    return option ? `${row.parentName} (${option})` : row.parentName;
+  }
 
   return (
     <div className="space-y-4">
@@ -261,22 +277,33 @@ function QuickPanel({ products }: { products: Product[] }) {
           <h2 className="mb-3 flex items-center gap-2 font-semibold text-amber-900">
             <span className="text-amber-500">⚠</span> Stock alerts
           </h2>
+          <p className="mb-3 text-xs text-amber-800/80">
+            Per variant SKU via inventory service
+          </p>
           <div className="space-y-2">
-            {outOfStock.map((p) => (
-              <div key={p.id} className="flex items-center justify-between text-sm">
-                <span className="truncate text-amber-900">{p.name}</span>
-                <span className="ml-2 shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+            {outOfStock.map((row) => (
+              <Link
+                key={row.sku}
+                to={`/products/${encodeURIComponent(row.parentId)}`}
+                className="flex items-center justify-between gap-2 text-sm hover:underline"
+              >
+                <span className="truncate text-amber-900">{alertLabel(row)}</span>
+                <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                   Out of stock
                 </span>
-              </div>
+              </Link>
             ))}
-            {lowStock.map((p) => (
-              <div key={p.id} className="flex items-center justify-between text-sm">
-                <span className="truncate text-amber-900">{p.name}</span>
-                <span className="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  {p.stock} left
+            {lowStock.map((row) => (
+              <Link
+                key={row.sku}
+                to={`/products/${encodeURIComponent(row.parentId)}`}
+                className="flex items-center justify-between gap-2 text-sm hover:underline"
+              >
+                <span className="truncate text-amber-900">{alertLabel(row)}</span>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  {row.quantity} left
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

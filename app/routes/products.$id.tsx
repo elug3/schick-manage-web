@@ -2,16 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import {
   type Product,
+  type ProductVariant,
+  formatVariantOption,
+  getInventory,
   getManageProduct,
   getProduct,
+  productVariants,
+  setInventory,
   uploadProductImage,
+  uploadVariantImage,
 } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const LOW_STOCK_THRESHOLD = 5;
 
 export function meta() {
   return [{ title: "Product | Dupli1 Admin" }];
+}
+
+interface VariantRow extends ProductVariant {
+  quantity: number | null;
+  reserved: number | null;
 }
 
 export default function ProductDetail() {
@@ -19,6 +31,7 @@ export default function ProductDetail() {
   const [searchParams] = useSearchParams();
   const category = searchParams.get("category") ?? "bags";
   const [product, setProduct] = useState<Product | null>(null);
+  const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,17 +45,38 @@ export default function ProductDetail() {
 
     async function load() {
       try {
-        const p = await getManageProduct(productId);
-        if (!cancelled) setProduct(p);
-      } catch {
+        let p: Product;
         try {
-          const p = await getProduct(category, productId);
-          if (!p) throw new Error("Product not found");
-          if (!cancelled) setProduct(p);
-        } catch (err) {
-          if (!cancelled) {
-            setError(err instanceof Error ? err.message : "Product not found");
-          }
+          p = await getManageProduct(productId);
+        } catch {
+          const fallback = await getProduct(category, productId);
+          if (!fallback) throw new Error("Product not found");
+          p = fallback;
+        }
+
+        const variants = productVariants(p);
+        const rows = await Promise.all(
+          variants.map(async (variant) => {
+            try {
+              const stock = await getInventory(variant.sku);
+              return {
+                ...variant,
+                quantity: stock.quantity,
+                reserved: stock.reserved,
+              };
+            } catch {
+              return { ...variant, quantity: null, reserved: null };
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setProduct(p);
+          setVariantRows(rows);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Product not found");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -54,6 +88,25 @@ export default function ProductDetail() {
       cancelled = true;
     };
   }, [id, category]);
+
+  async function refreshVariantStock(sku: string) {
+    try {
+      const stock = await getInventory(sku);
+      setVariantRows((rows) =>
+        rows.map((row) =>
+          row.sku === sku
+            ? { ...row, quantity: stock.quantity, reserved: stock.reserved }
+            : row
+        )
+      );
+    } catch {
+      setVariantRows((rows) =>
+        rows.map((row) =>
+          row.sku === sku ? { ...row, quantity: null, reserved: null } : row
+        )
+      );
+    }
+  }
 
   if (loading) {
     return (
@@ -76,6 +129,11 @@ export default function ProductDetail() {
     );
   }
 
+  const hasMultipleVariants =
+    (product.variants?.length ?? 0) > 1 ||
+    variantRows.length > 1 ||
+    Boolean(product.availableColors?.length);
+
   return (
     <div className="space-y-6">
       <Link to="/products" className="text-sm text-[#6D4AFF] hover:underline">
@@ -86,20 +144,24 @@ export default function ProductDetail() {
         <h1 className="text-2xl font-bold text-[#1C1B1F]">{product.name}</h1>
         <p className="mt-1 text-sm capitalize text-[#6B6480]">{product.category}</p>
 
-        <ProductImages
-          productId={product.id}
-          imageUrls={product.imageUrls ?? []}
-          onUploaded={setProduct}
-        />
-
         <dl className="mt-6 grid gap-4 sm:grid-cols-2">
           {[
             ["ID", product.id],
-            ["SKU", product.sku],
             ["Brand", product.brand],
-            ["Color", product.color],
             ["Material", product.material],
             ["Status", product.status],
+            [
+              "Colors",
+              product.availableColors?.join(", ") ?? product.color ?? "—",
+            ],
+            [
+              "Price from",
+              product.priceFrom != null
+                ? formatCurrency(product.priceFrom)
+                : product.price != null
+                  ? formatCurrency(product.price)
+                  : "—",
+            ],
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
@@ -110,26 +172,266 @@ export default function ProductDetail() {
           ))}
         </dl>
 
-        <div className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
-            Raw API payload
-          </h2>
-          <pre className="mt-2 overflow-x-auto rounded-xl bg-[#F4F3F8] p-4 text-xs text-[#1C1B1F]">
-            {JSON.stringify(product.raw, null, 2)}
-          </pre>
-        </div>
+        <VariantsSection
+          product={product}
+          rows={variantRows}
+          onStockUpdated={refreshVariantStock}
+          onProductUpdated={setProduct}
+        />
+
+        {!hasMultipleVariants && variantRows[0] && (
+          <LegacyProductImages
+            productId={product.id}
+            variant={variantRows[0]}
+            onUploaded={setProduct}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function ProductImages({
+function VariantsSection({
+  product,
+  rows,
+  onStockUpdated,
+  onProductUpdated,
+}: {
+  product: Product;
+  rows: VariantRow[];
+  onStockUpdated: (sku: string) => Promise<void>;
+  onProductUpdated: (product: Product) => void;
+}) {
+  const { notify } = useNotify();
+
+  async function handleSetStock(sku: string, quantity: number) {
+    try {
+      await setInventory(sku, quantity);
+      await onStockUpdated(sku);
+      notify(`Stock updated for ${sku}`);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to update stock", "error");
+    }
+  }
+
+  return (
+    <div className="mt-8 border-t border-[#F0EEF8] pt-6">
+      <div className="mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
+          Variants
+        </h2>
+        <p className="mt-1 text-sm text-[#6B6480]">
+          Sellable SKUs with inventory keyed by{" "}
+          <code className="text-xs">/inventory/api/v1/inventory/{"{sku}"}</code>
+        </p>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-[#E5E3EE]">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-[#F0EEF8] bg-[#FAFAFA] text-left">
+              {["SKU", "Option", "Price", "Status", "Stock", "Images", ""].map(
+                (heading) => (
+                  <th
+                    key={heading}
+                    className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]"
+                  >
+                    {heading}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.sku}
+                className="border-b border-[#F0EEF8] last:border-0 align-top"
+              >
+                <td className="px-4 py-3 font-mono text-xs text-[#1C1B1F]">
+                  {row.sku}
+                </td>
+                <td className="px-4 py-3 text-[#6B6480]">
+                  {formatVariantOption(row)}
+                </td>
+                <td className="px-4 py-3 text-[#1C1B1F]">
+                  {formatCurrency(row.price)}
+                </td>
+                <td className="px-4 py-3 capitalize text-[#6B6480]">
+                  {row.status}
+                </td>
+                <td className="px-4 py-3">
+                  <StockEditor
+                    sku={row.sku}
+                    quantity={row.quantity}
+                    reserved={row.reserved}
+                    onSave={handleSetStock}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <VariantImageUpload
+                    productId={product.id}
+                    variant={row}
+                    onUploaded={(updated) => {
+                      onProductUpdated({
+                        ...product,
+                        variants: productVariants(product).map((v) =>
+                          v.sku === updated.sku ? updated : v
+                        ),
+                      });
+                    }}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  {row.quantity === 0 && (
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                      Out
+                    </span>
+                  )}
+                  {row.quantity != null &&
+                    row.quantity > 0 &&
+                    row.quantity <= LOW_STOCK_THRESHOLD && (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Low
+                      </span>
+                    )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StockEditor({
+  sku,
+  quantity,
+  reserved,
+  onSave,
+}: {
+  sku: string;
+  quantity: number | null;
+  reserved: number | null;
+  onSave: (sku: string, quantity: number) => Promise<void>;
+}) {
+  const [value, setValue] = useState(
+    quantity != null ? String(quantity) : ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(quantity != null ? String(quantity) : "");
+  }, [quantity]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 0) return;
+    setSaving(true);
+    try {
+      await onSave(sku, parsed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <input
+        type="number"
+        min={0}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="—"
+        className="w-20 rounded-lg border border-[#E5E3EE] px-2 py-1 text-sm outline-none focus:border-[#6D4AFF]"
+      />
+      <button
+        type="submit"
+        disabled={saving}
+        className="rounded-lg bg-[#F4F3F8] px-2 py-1 text-xs font-semibold text-[#6D4AFF] hover:bg-[#E5E3EE] disabled:opacity-60"
+      >
+        {saving ? "…" : "Set"}
+      </button>
+      {reserved != null && reserved > 0 && (
+        <span className="text-xs text-[#9D98B3]">{reserved} reserved</span>
+      )}
+    </form>
+  );
+}
+
+function VariantImageUpload({
   productId,
-  imageUrls,
+  variant,
   onUploaded,
 }: {
   productId: string;
-  imageUrls: string[];
+  variant: ProductVariant;
+  onUploaded: (variant: ProductVariant) => void;
+}) {
+  const { notify } = useNotify();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      notify("Please choose an image file", "error");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      notify("Image must be 10 MB or smaller", "error");
+      e.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const updated = await uploadVariantImage(productId, variant.sku, file);
+      onUploaded(updated);
+      notify("Variant image uploaded");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={uploading}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="text-xs font-semibold text-[#6D4AFF] hover:underline disabled:opacity-60"
+      >
+        {uploading ? "Uploading…" : `Upload (${variant.imageUrls.length})`}
+      </button>
+    </div>
+  );
+}
+
+function LegacyProductImages({
+  productId,
+  variant,
+  onUploaded,
+}: {
+  productId: string;
+  variant: ProductVariant;
   onUploaded: (product: Product) => void;
 }) {
   const { notify } = useNotify();
@@ -165,6 +467,8 @@ function ProductImages({
     }
   }
 
+  const imageUrls = variant.imageUrls;
+
   return (
     <div className="mt-6 border-t border-[#F0EEF8] pt-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -173,8 +477,7 @@ function ProductImages({
             Images
           </h2>
           <p className="mt-1 text-sm text-[#6B6480]">
-            Uploads to S3 via{" "}
-            <code className="text-xs">PUT /product/api/v1/products/{"{id}"}/image</code>
+            Legacy parent upload or variant upload when multi-SKU is enabled
           </p>
         </div>
         <div>
@@ -217,9 +520,17 @@ function ProductImages({
         </div>
       ) : (
         <div className="mt-4 rounded-xl border border-dashed border-[#E5E3EE] bg-[#FAFAFA] px-4 py-10 text-center text-sm text-[#9D98B3]">
-          No images yet. Upload a product photo to store it in the image bucket.
+          No images yet.
         </div>
       )}
     </div>
   );
+}
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(n);
 }
