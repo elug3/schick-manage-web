@@ -1,11 +1,12 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { formatProductColors, listAllProducts, productListPrice, productVariantCount, } from "~/lib/api";
 export function meta() {
     return [{ title: "Products | Dupli1 Admin" }];
 }
 export default function Products() {
+    const navigate = useNavigate();
     const [allProducts, setAllProducts] = useState([]);
     const [activeCategory, setActiveCategory] = useState("all");
     const [loading, setLoading] = useState(true);
@@ -53,8 +54,12 @@ export default function Products() {
                                                 "Variants",
                                                 "Price",
                                                 "Status",
-                                                "",
-                                            ].map((h) => (_jsx("th", { className: "px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: h }, h))) }) }), _jsx("tbody", { children: products.map((product) => (_jsxs("tr", { className: "border-b border-[#F0EEF8] last:border-0 hover:bg-[#FAFAFA]", children: [_jsx("td", { className: "px-5 py-3.5 font-medium text-[#1C1B1F]", children: product.name }), _jsx("td", { className: "px-5 py-3.5 font-mono text-xs text-[#6B6480]", children: product.id }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: product.brand ?? "—" }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: formatProductColors(product) }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: productVariantCount(product) }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: productListPrice(product) ?? "—" }), _jsx("td", { className: "px-5 py-3.5 capitalize text-[#6B6480]", children: product.status ?? "—" }), _jsx("td", { className: "px-5 py-3.5 text-right", children: _jsx(Link, { to: `/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`, className: "text-xs font-semibold text-[#6D4AFF] hover:underline", children: "Details \u2192" }) })] }, product.id))) })] }) })] })) })] }));
+                                            ].map((h) => (_jsx("th", { className: "px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: h }, h))) }) }), _jsx("tbody", { children: products.map((product) => (_jsxs("tr", { role: "link", tabIndex: 0, onClick: () => navigate(`/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`), onKeyDown: (e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    navigate(`/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`);
+                                                }
+                                            }, className: "cursor-pointer border-b border-[#F0EEF8] last:border-0 hover:bg-[#FAFAFA]", children: [_jsx("td", { className: "px-5 py-3.5 font-medium text-[#1C1B1F]", children: product.name }), _jsx("td", { className: "px-5 py-3.5 font-mono text-xs text-[#6B6480]", children: product.id }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: product.brand ?? "—" }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: formatProductColors(product) }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: productVariantCount(product) }), _jsx("td", { className: "px-5 py-3.5 text-[#6B6480]", children: productListPrice(product) ?? "—" }), _jsx("td", { className: "px-5 py-3.5 capitalize text-[#6B6480]", children: product.status ?? "—" })] }, product.id))) })] }) })] })) })] }));
 }
 function ProductCard({ product }) {
     const price = productListPrice(product);

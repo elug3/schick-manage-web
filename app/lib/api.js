@@ -97,6 +97,28 @@ export function productListPrice(product) {
     }).format(value);
     return product.priceFrom != null ? `From ${formatted}` : formatted;
 }
+/** Map variant SKU → parent product and option labels (for order line items). */
+export function buildVariantSkuIndex(products) {
+    const index = new Map();
+    for (const product of products) {
+        for (const variant of productVariants(product)) {
+            index.set(variant.sku, {
+                productId: product.id,
+                productName: product.name,
+                color: variant.color,
+                size: variant.size,
+            });
+        }
+    }
+    return index;
+}
+export function formatOrderItemVariant(sku, lookup) {
+    const ctx = lookup.get(sku);
+    if (!ctx)
+        return null;
+    const option = [ctx.color, ctx.size].filter(Boolean).join(" / ");
+    return option || null;
+}
 export function mapProduct(hit, category, index = 0) {
     const variants = mapVariantsFromHit(hit);
     const defaultImageUrl = hitString(hit, "defaultImageUrl") ??

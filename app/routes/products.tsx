@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   type Product,
   formatProductColors,
@@ -13,6 +13,7 @@ export function meta() {
 }
 
 export default function Products() {
+  const navigate = useNavigate();
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -131,7 +132,6 @@ export default function Products() {
                       "Variants",
                       "Price",
                       "Status",
-                      "",
                     ].map((h) => (
                       <th
                         key={h}
@@ -146,7 +146,22 @@ export default function Products() {
                   {products.map((product) => (
                     <tr
                       key={product.id}
-                      className="border-b border-[#F0EEF8] last:border-0 hover:bg-[#FAFAFA]"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() =>
+                        navigate(
+                          `/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(
+                            `/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`
+                          );
+                        }
+                      }}
+                      className="cursor-pointer border-b border-[#F0EEF8] last:border-0 hover:bg-[#FAFAFA]"
                     >
                       <td className="px-5 py-3.5 font-medium text-[#1C1B1F]">
                         {product.name}
@@ -168,14 +183,6 @@ export default function Products() {
                       </td>
                       <td className="px-5 py-3.5 capitalize text-[#6B6480]">
                         {product.status ?? "—"}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <Link
-                          to={`/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`}
-                          className="text-xs font-semibold text-[#6D4AFF] hover:underline"
-                        >
-                          Details →
-                        </Link>
                       </td>
                     </tr>
                   ))}

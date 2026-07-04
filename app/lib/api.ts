@@ -167,6 +167,41 @@ export function productListPrice(product: Product): string | null {
   return product.priceFrom != null ? `From ${formatted}` : formatted;
 }
 
+export interface SkuVariantContext {
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+}
+
+/** Map variant SKU → parent product and option labels (for order line items). */
+export function buildVariantSkuIndex(
+  products: Product[]
+): Map<string, SkuVariantContext> {
+  const index = new Map<string, SkuVariantContext>();
+  for (const product of products) {
+    for (const variant of productVariants(product)) {
+      index.set(variant.sku, {
+        productId: product.id,
+        productName: product.name,
+        color: variant.color,
+        size: variant.size,
+      });
+    }
+  }
+  return index;
+}
+
+export function formatOrderItemVariant(
+  sku: string,
+  lookup: Map<string, SkuVariantContext>
+): string | null {
+  const ctx = lookup.get(sku);
+  if (!ctx) return null;
+  const option = [ctx.color, ctx.size].filter(Boolean).join(" / ");
+  return option || null;
+}
+
 export function mapProduct(
   hit: ProductSearchHit,
   category?: string,

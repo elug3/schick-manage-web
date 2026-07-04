@@ -11,6 +11,7 @@ import {
   getProduct,
   productVariants,
   setInventory,
+  updateProduct,
   updateVariant,
   uploadProductImage,
   uploadVariantImage,
@@ -21,6 +22,8 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const LOW_STOCK_THRESHOLD = 5;
 const inputCls =
   "rounded-lg border border-[#E5E3EE] px-2 py-1.5 text-sm outline-none focus:border-[#6D4AFF]";
+const fieldCls =
+  "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
 
 export function meta() {
   return [{ title: "Product | Dupli1 Admin" }];
@@ -138,36 +141,7 @@ export default function ProductDetail() {
       </Link>
 
       <div className="rounded-2xl border border-[#E5E3EE] bg-white p-5 shadow-[0_1px_4px_rgba(28,27,31,0.04)] sm:p-8">
-        <h1 className="text-2xl font-bold text-[#1C1B1F]">{product.name}</h1>
-        <p className="mt-1 text-sm capitalize text-[#6B6480]">{product.category}</p>
-
-        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-          {[
-            ["ID", product.id],
-            ["Brand", product.brand],
-            ["Material", product.material],
-            ["Status", product.status],
-            [
-              "Colors",
-              product.availableColors?.join(", ") ?? product.color ?? "—",
-            ],
-            [
-              "Price from",
-              product.priceFrom != null
-                ? formatCurrency(product.priceFrom)
-                : product.price != null
-                  ? formatCurrency(product.price)
-                  : "—",
-            ],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
-                {label}
-              </dt>
-              <dd className="mt-1 text-sm text-[#1C1B1F]">{value ?? "—"}</dd>
-            </div>
-          ))}
-        </dl>
+        <ParentSummarySection product={product} onUpdated={setProduct} />
 
         <VariantsSection
           product={product}
@@ -185,6 +159,193 @@ export default function ProductDetail() {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function ParentSummarySection({
+  product,
+  onUpdated,
+}: {
+  product: Product;
+  onUpdated: (product: Product) => void;
+}) {
+  const { notify } = useNotify();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(product.name);
+  const [brand, setBrand] = useState(product.brand ?? "");
+  const [material, setMaterial] = useState(product.material ?? "");
+  const [status, setStatus] = useState(product.status ?? "active");
+  const [description, setDescription] = useState(product.description ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(product.name);
+    setBrand(product.brand ?? "");
+    setMaterial(product.material ?? "");
+    setStatus(product.status ?? "active");
+    setDescription(product.description ?? "");
+  }, [product]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const updated = await updateProduct(product.id, {
+        name: name.trim(),
+        brand: brand.trim(),
+        material: material.trim(),
+        status: status.trim() || "active",
+        description: description.trim() || undefined,
+      });
+      onUpdated(updated);
+      setEditing(false);
+      notify("Product updated");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to update product", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const colors =
+    product.availableColors?.join(", ") ?? product.color ?? "—";
+  const priceFrom =
+    product.priceFrom != null
+      ? formatCurrency(product.priceFrom)
+      : product.price != null
+        ? formatCurrency(product.price)
+        : "—";
+
+  return (
+    <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1C1B1F]">{product.name}</h1>
+          <p className="mt-1 text-sm capitalize text-[#6B6480]">
+            {product.category}
+          </p>
+        </div>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6D4AFF] transition hover:border-[#6D4AFF]/40 hover:bg-[#FAFAFA]"
+          >
+            Edit style
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
+            Edit parent product
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-1.5 sm:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+                Name
+              </span>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={fieldCls}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+                Brand
+              </span>
+              <input
+                required
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                className={fieldCls}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+                Material
+              </span>
+              <input
+                required
+                value={material}
+                onChange={(e) => setMaterial(e.target.value)}
+                className={fieldCls}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+                Status
+              </span>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className={fieldCls}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="draft">Draft</option>
+              </select>
+            </label>
+            <label className="space-y-1.5 sm:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+                Description
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className={fieldCls}
+              />
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-[#6D4AFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6B6480]"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+          {[
+            ["ID", product.id],
+            ["Brand", product.brand],
+            ["Material", product.material],
+            ["Status", product.status],
+            ["Colors", colors],
+            ["Price from", priceFrom],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
+                {label}
+              </dt>
+              <dd className="mt-1 text-sm text-[#1C1B1F]">{value ?? "—"}</dd>
+            </div>
+          ))}
+          {product.description && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
+                Description
+              </dt>
+              <dd className="mt-1 text-sm text-[#1C1B1F]">{product.description}</dd>
+            </div>
+          )}
+        </dl>
+      )}
     </div>
   );
 }
@@ -525,6 +686,7 @@ function AddVariantForm({
   const [size, setSize] = useState("");
   const [sku, setSku] = useState("");
   const [price, setPrice] = useState("");
+  const [initialStock, setInitialStock] = useState("");
   const [status, setStatus] = useState("active");
   const [saving, setSaving] = useState(false);
 
@@ -538,13 +700,19 @@ function AddVariantForm({
 
     setSaving(true);
     try {
-      await createVariant(productId, {
+      const variant = await createVariant(productId, {
         color: color.trim(),
         size: size.trim(),
         price: parsedPrice,
         sku: sku.trim() || undefined,
         status,
       });
+
+      const stockQty = Number.parseInt(initialStock, 10);
+      if (!Number.isNaN(stockQty) && stockQty >= 0) {
+        await setInventory(variant.sku, stockQty).catch(() => {});
+      }
+
       await onAdded();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Failed to add variant", "error");
@@ -612,6 +780,17 @@ function AddVariantForm({
             <option value="inactive">Inactive</option>
             <option value="draft">Draft</option>
           </select>
+        </label>
+        <label className="space-y-1 text-xs text-[#6B6480]">
+          Initial stock
+          <input
+            type="number"
+            min={0}
+            value={initialStock}
+            onChange={(e) => setInitialStock(e.target.value)}
+            className={`block w-full ${inputCls}`}
+            placeholder="Inventory for this SKU"
+          />
         </label>
       </div>
       <div className="flex gap-2">
