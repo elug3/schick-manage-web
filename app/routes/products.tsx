@@ -107,7 +107,11 @@ export default function Products() {
           <>
             <div className="divide-y divide-[#F0EEF8] md:hidden">
               {products.map((product) => (
-                <div key={product.id} className="space-y-3 p-4">
+                <Link
+                  key={product.id}
+                  to={`/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`}
+                  className="block space-y-3 p-4 transition hover:bg-[#FAFAFA] active:bg-[#F4F3F8]"
+                >
                   <div>
                     <p className="font-medium text-[#1C1B1F]">{product.name}</p>
                     <p className="mt-1 font-mono text-xs text-[#6B6480]">
@@ -127,13 +131,7 @@ export default function Products() {
                       </span>
                     )}
                   </div>
-                  <Link
-                    to={`/products/${encodeURIComponent(product.id)}?category=${encodeURIComponent(product.category)}`}
-                    className="inline-flex text-xs font-semibold text-[#6D4AFF] hover:underline"
-                  >
-                    Details →
-                  </Link>
-                </div>
+                </Link>
               ))}
             </div>
 
