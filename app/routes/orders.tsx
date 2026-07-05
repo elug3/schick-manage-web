@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   type Order,
+  type OrderItem,
   type OrderStatus,
+  type SkuVariantContext,
+  buildVariantSkuIndex,
+  formatOrderItemVariant,
   getOrders,
+  listAllProducts,
   updateOrderStatus,
 } from "~/lib/api";
 import { OrderStatusBadge } from "./dashboard";
@@ -28,15 +33,23 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [skuLookup, setSkuLookup] = useState<Map<string, SkuVariantContext>>(
+    () => new Map()
+  );
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<OrderStatus | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    getOrders()
-      .then(setOrders)
-      .catch(() => setOrders([]))
+    Promise.all([
+      getOrders().catch(() => [] as Order[]),
+      listAllProducts().catch(() => []),
+    ])
+      .then(([orderList, products]) => {
+        setOrders(orderList);
+        setSkuLookup(buildVariantSkuIndex(products));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -138,6 +151,7 @@ export default function Orders() {
                 <OrderCard
                   key={order.id}
                   order={order}
+                  skuLookup={skuLookup}
                   expanded={expandedId === order.id}
                   updating={updatingId === order.id}
                   onToggle={() =>
@@ -175,6 +189,7 @@ export default function Orders() {
                     <OrderRows
                       key={order.id}
                       order={order}
+                      skuLookup={skuLookup}
                       expanded={expandedId === order.id}
                       updating={updatingId === order.id}
                       onToggle={() =>
@@ -197,12 +212,14 @@ export default function Orders() {
 
 function OrderCard({
   order,
+  skuLookup,
   expanded,
   updating,
   onToggle,
   onStatusChange,
 }: {
   order: Order;
+  skuLookup: Map<string, SkuVariantContext>;
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
@@ -271,25 +288,11 @@ function OrderCard({
           </p>
           <div className="space-y-2">
             {order.items.map((item, i) => (
-              <div
+              <OrderItemRow
                 key={i}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F4F3F8] text-xs font-bold text-[#6D4AFF]">
-                    {item.sku.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block truncate font-medium text-[#1C1B1F]">
-                      {item.sku}
-                    </span>
-                    <span className="text-[#9D98B3]">× {item.quantity}</span>
-                  </div>
-                </div>
-                <span className="shrink-0 font-semibold text-[#1C1B1F]">
-                  {formatCents(item.unit_price_cents * item.quantity)}
-                </span>
-              </div>
+                item={item}
+                skuLookup={skuLookup}
+              />
             ))}
           </div>
           <div className="mt-3 flex items-center justify-between border-t border-[#E5E3EE] pt-3 text-sm font-bold text-[#1C1B1F]">
@@ -304,12 +307,14 @@ function OrderCard({
 
 function OrderRows({
   order,
+  skuLookup,
   expanded,
   updating,
   onToggle,
   onStatusChange,
 }: {
   order: Order;
+  skuLookup: Map<string, SkuVariantContext>;
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
@@ -383,27 +388,11 @@ function OrderRows({
               </p>
               <div className="space-y-2">
                 {order.items.map((item, i) => (
-                  <div
+                  <OrderItemRow
                     key={i}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F4F3F8] text-xs font-bold text-[#6D4AFF]">
-                        {item.sku.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <span className="font-medium text-[#1C1B1F]">
-                          {item.sku}
-                        </span>
-                        <span className="ml-2 text-[#9D98B3]">
-                          × {item.quantity}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="font-semibold text-[#1C1B1F]">
-                      {formatCents(item.unit_price_cents * item.quantity)}
-                    </span>
-                  </div>
+                    item={item}
+                    skuLookup={skuLookup}
+                  />
                 ))}
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-[#E5E3EE] pt-3 text-sm font-bold text-[#1C1B1F]">
@@ -415,6 +404,42 @@ function OrderRows({
         </tr>
       )}
     </>
+  );
+}
+
+function OrderItemRow({
+  item,
+  skuLookup,
+}: {
+  item: OrderItem;
+  skuLookup: Map<string, SkuVariantContext>;
+}) {
+  const ctx = skuLookup.get(item.sku);
+  const variantLabel = formatOrderItemVariant(item.sku, skuLookup);
+
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F4F3F8] text-xs font-bold text-[#6D4AFF]">
+          {item.sku.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <span className="block truncate font-mono text-xs font-medium text-[#1C1B1F]">
+            {item.sku}
+          </span>
+          {ctx && (
+            <span className="block truncate text-xs text-[#6B6480]">
+              {ctx.productName}
+              {variantLabel ? ` · ${variantLabel}` : ""}
+            </span>
+          )}
+          <span className="text-[#9D98B3]">× {item.quantity}</span>
+        </div>
+      </div>
+      <span className="shrink-0 font-semibold text-[#1C1B1F]">
+        {formatCents(item.unit_price_cents * item.quantity)}
+      </span>
+    </div>
   );
 }
 

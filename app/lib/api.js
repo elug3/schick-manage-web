@@ -23,12 +23,128 @@ function hitStringArray(hit, key) {
     const strings = value.filter((v) => typeof v === "string");
     return strings.length > 0 ? strings : undefined;
 }
+function mapVariant(hit) {
+    const sku = hitString(hit, "sku") ?? hitString(hit, "id") ?? "unknown-sku";
+    return {
+        sku,
+        productId: hitString(hit, "product_id") ?? hitString(hit, "productId"),
+        color: hitString(hit, "color") ?? "",
+        size: hitString(hit, "size") ?? "",
+        price: hitNumber(hit, "price") ?? 0,
+        status: hitString(hit, "status") ?? "active",
+        imageUrls: hitStringArray(hit, "imageUrls") ?? [],
+        inStock: typeof hit.inStock === "boolean"
+            ? hit.inStock
+            : typeof hit.in_stock === "boolean"
+                ? hit.in_stock
+                : undefined,
+        raw: hit,
+    };
+}
+function mapVariantsFromHit(hit) {
+    const raw = hit.variants;
+    if (!Array.isArray(raw) || raw.length === 0)
+        return undefined;
+    return raw
+        .filter((v) => v != null && typeof v === "object")
+        .map((v) => mapVariant(v));
+}
+/** Legacy flat product → single sellable variant (backfill-compatible). */
+export function legacyVariantFromProduct(product) {
+    return {
+        sku: product.sku ?? product.id,
+        productId: product.id,
+        color: product.color ?? "",
+        size: "",
+        price: product.price ?? 0,
+        status: product.status ?? "active",
+        imageUrls: product.imageUrls ?? [],
+        raw: product.raw,
+    };
+}
+export function productVariants(product) {
+    if (product.variants && product.variants.length > 0) {
+        return product.variants;
+    }
+    return [legacyVariantFromProduct(product)];
+}
+export function formatVariantOption(variant) {
+    const parts = [variant.color, variant.size].filter(Boolean);
+    return parts.length > 0 ? parts.join(" / ") : variant.sku;
+}
+export function formatProductColors(product) {
+    if (product.availableColors && product.availableColors.length > 0) {
+        return product.availableColors.join(", ");
+    }
+    if (product.color)
+        return product.color;
+    return "—";
+}
+export function productVariantCount(product) {
+    if (product.variants && product.variants.length > 0) {
+        return product.variants.length;
+    }
+    return 1;
+}
+export function productListPrice(product) {
+    const value = product.priceFrom ?? product.price;
+    if (value == null)
+        return null;
+    const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+    }).format(value);
+    return product.priceFrom != null ? `From ${formatted}` : formatted;
+}
+/** Best-effort thumbnail for list cards (parent default or first variant image). */
+export function productPreviewImage(product) {
+    if (product.defaultImageUrl)
+        return product.defaultImageUrl;
+    if (product.imageUrls && product.imageUrls.length > 0) {
+        return product.imageUrls[0];
+    }
+    for (const variant of productVariants(product)) {
+        if (variant.imageUrls.length > 0)
+            return variant.imageUrls[0];
+    }
+    return null;
+}
+/** Map variant SKU → parent product and option labels (for order line items). */
+export function buildVariantSkuIndex(products) {
+    const index = new Map();
+    for (const product of products) {
+        for (const variant of productVariants(product)) {
+            index.set(variant.sku, {
+                productId: product.id,
+                productName: product.name,
+                color: variant.color,
+                size: variant.size,
+            });
+        }
+    }
+    return index;
+}
+export function formatOrderItemVariant(sku, lookup) {
+    const ctx = lookup.get(sku);
+    if (!ctx)
+        return null;
+    const option = [ctx.color, ctx.size].filter(Boolean).join(" / ");
+    return option || null;
+}
 export function mapProduct(hit, category, index = 0) {
+    const variants = mapVariantsFromHit(hit);
+    const defaultImageUrl = hitString(hit, "defaultImageUrl") ??
+        hitString(hit, "default_image_url") ??
+        variants?.[0]?.imageUrls[0];
     return {
         id: hitId(hit, index),
         name: hitName(hit),
         category: category ?? hitString(hit, "category") ?? "bags",
-        price: hitNumber(hit, "price") ?? hitNumber(hit, "unit_price_cents"),
+        price: hitNumber(hit, "priceFrom") ??
+            hitNumber(hit, "price_from") ??
+            hitNumber(hit, "price") ??
+            hitNumber(hit, "unit_price_cents"),
         stock: hitNumber(hit, "stock") ?? hitNumber(hit, "quantity"),
         description: hitString(hit, "description"),
         brand: hitString(hit, "brand"),
@@ -36,7 +152,15 @@ export function mapProduct(hit, category, index = 0) {
         material: hitString(hit, "material"),
         sku: hitString(hit, "sku") ?? hitString(hit, "id"),
         status: hitString(hit, "status"),
-        imageUrls: hitStringArray(hit, "imageUrls"),
+        imageUrls: hitStringArray(hit, "imageUrls") ??
+            (defaultImageUrl ? [defaultImageUrl] : undefined),
+        availableColors: hitStringArray(hit, "availableColors") ??
+            hitStringArray(hit, "available_colors"),
+        availableSizes: hitStringArray(hit, "availableSizes") ??
+            hitStringArray(hit, "available_sizes"),
+        defaultImageUrl,
+        priceFrom: hitNumber(hit, "priceFrom") ?? hitNumber(hit, "price_from"),
+        variants,
         raw: hit,
     };
 }
@@ -95,7 +219,20 @@ export async function getProduct(category, id) {
     return products.find((p) => p.id === id || p.sku === id) ?? null;
 }
 export async function getManageProduct(id) {
-    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(id)}/manage`));
+    try {
+        return await getProductDetail(id);
+    }
+    catch {
+        const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(id)}/manage`));
+        if (!res.ok)
+            throw new Error(await readError(res, "Product not found"));
+        const hit = (await res.json());
+        return mapProduct(hit);
+    }
+}
+/** Parent + embedded variants (admin/public PDP shape). */
+export async function getProductDetail(id) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(id)}`));
     if (!res.ok)
         throw new Error(await readError(res, "Product not found"));
     const hit = (await res.json());
@@ -110,6 +247,68 @@ export async function uploadProductImage(id, file) {
     const hit = (await res.json());
     return mapProduct(hit);
 }
+export async function uploadVariantImage(productId, sku, file) {
+    const form = new FormData();
+    form.append("image", file);
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(sku)}/images`), { method: "POST", body: form });
+    if (!res.ok) {
+        throw new Error(await readError(res, "Failed to upload variant image"));
+    }
+    const hit = (await res.json());
+    return mapVariant(hit);
+}
+export async function createProductParent(input) {
+    const res = await authedFetch(productPath("/api/v1/products"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: input.name,
+            id: input.id,
+            brand: input.brand,
+            material: input.material,
+            category: input.category ?? "bags",
+            description: input.description,
+        }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create product"));
+    const hit = (await res.json());
+    return mapProduct(hit, input.category ?? "bags");
+}
+export async function createVariant(productId, input) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            color: input.color,
+            price: input.price,
+            size: input.size ?? "",
+            sku: input.sku,
+            status: input.status ?? "active",
+        }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create variant"));
+    const hit = (await res.json());
+    return mapVariant(hit);
+}
+export async function updateVariant(productId, sku, input) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(sku)}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to update variant"));
+    const hit = (await res.json());
+    return mapVariant(hit);
+}
+export async function deleteVariant(productId, sku) {
+    const res = await authedFetch(productPath(`/api/v1/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(sku)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete variant"));
+}
+/** Legacy flat create (single SKU); prefer createProductParent + createVariant. */
 export async function createBagProduct(input) {
     const res = await authedFetch(productPath("/api/v1/products"), {
         method: "POST",
@@ -236,6 +435,35 @@ export async function adjustInventory(sku, delta) {
     if (!res.ok)
         throw new Error(await readError(res, "Failed to adjust stock"));
     return res.json();
+}
+async function inventoryQuantityForSku(sku) {
+    try {
+        const item = await getInventory(sku);
+        return item.quantity;
+    }
+    catch {
+        return null;
+    }
+}
+/** Stock alerts from inventory service keyed by variant SKU. */
+export async function getCatalogStockAlerts() {
+    const products = await listAllProducts().catch(() => []);
+    const rows = [];
+    await Promise.all(products.flatMap((product) => productVariants(product).map(async (variant) => {
+        const quantity = await inventoryQuantityForSku(variant.sku);
+        if (quantity == null)
+            return;
+        rows.push({
+            parentId: product.id,
+            parentName: product.name,
+            sku: variant.sku,
+            color: variant.color,
+            size: variant.size,
+            quantity,
+            available: Math.max(0, quantity),
+        });
+    })));
+    return rows.sort((a, b) => a.parentName.localeCompare(b.parentName));
 }
 // ── Auth (users) ─────────────────────────────────────────────────────────────
 export const MANAGER_ROLES = [
