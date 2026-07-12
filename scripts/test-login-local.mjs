@@ -65,10 +65,10 @@ async function main() {
     fail(`POST /auth/session/login returned ${loginRes.status}: ${err}`);
   }
   const loginBody = await loginRes.json();
-  if (!loginBody.access_token) fail("Login response missing access_token");
+  if (loginBody.access_token) fail("Login response should not expose access_token to the browser");
   if (!loginBody.email) fail("Login response missing email");
   if (!cookieJar.has("dupli1_sid")) fail("Login did not set dupli1_sid cookie");
-  pass("Session login returns token, email, and session cookie");
+  pass("Session login returns email and session cookie, without leaking the access token");
 
   // 3. Session me with cookie
   const meRes = await request("/auth/session/me");

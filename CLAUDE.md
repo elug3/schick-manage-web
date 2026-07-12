@@ -72,13 +72,14 @@ Set `DUPLI1_GATEWAY_URL` (default `http://localhost:8080`) for SSR server-side b
 
 ## Auth (browser)
 
-Server-side session storage keeps refresh tokens off the browser:
+Server-side session storage keeps both refresh and access tokens off the browser entirely:
 
-- Access token only in `localStorage` as `dupli1_at`.
-- Refresh token stored in the SSR server's in-memory session cache, keyed by `session_id`.
-- `dupli1_sid` httpOnly cookie carries the session id; the browser never sees the refresh token.
-- `POST /auth/session/login`, `/auth/session/refresh`, `/auth/session/logout`, `GET /auth/session/me` proxy auth to the gateway and manage the session cookie.
-- `authedFetch` attaches `Authorization: Bearer <token>` and retries once via `/auth/session/refresh` on 401.
+- No token of any kind is stored client-side (not in `localStorage`, not in a readable cookie).
+- Refresh token and a short-lived cached access token live in the SSR server's in-memory session cache, keyed by `session_id`.
+- `dupli1_sid` httpOnly cookie carries the session id; the browser never sees either token.
+- `POST /auth/session/login`, `/auth/session/logout`, `GET /auth/session/me` proxy auth to the gateway and manage the session cookie. `/auth/session/refresh` still exists for callers that want an access token directly.
+- `authedFetch` (in `app/lib/auth.ts`) sends all `/auth`, `/product`, `/inventory`, `/order` API calls to `/auth/session/gateway/*` with `credentials: "include"` and no `Authorization` header. The `auth.session.gateway.tsx` route (`handleSessionGatewayProxy`) resolves the session cookie server-side, exchanges/reuses a cached access token, attaches `Authorization: Bearer <token>`, and forwards the request to the real gateway.
+- Users carry `permissions: string[]` and `account_type: "customer" | "admin" | "service"` (see `PERMISSION_CATALOG` / `AccountType` in `app/lib/api.ts`) — the legacy `roles` claim was removed from the backend.
 
 ## Architecture
 

@@ -10,6 +10,7 @@ import {
   listAllProducts,
   updateOrderStatus,
 } from "~/lib/api";
+import { useNotify } from "~/lib/notifications";
 import { OrderStatusBadge } from "./dashboard";
 
 export function meta() {
@@ -32,18 +33,24 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export default function Orders() {
+  const { notify } = useNotify();
   const [orders, setOrders] = useState<Order[]>([]);
   const [skuLookup, setSkuLookup] = useState<Map<string, SkuVariantContext>>(
     () => new Map()
   );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<OrderStatus | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
+    setError(null);
     Promise.all([
-      getOrders().catch(() => [] as Order[]),
+      getOrders().catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load orders");
+        return [] as Order[];
+      }),
       listAllProducts().catch(() => []),
     ])
       .then(([orderList, products]) => {
@@ -73,6 +80,11 @@ export default function Orders() {
       setOrders((os) =>
         os.map((o) => (o.id === order.id ? updated : o))
       );
+    } catch (err) {
+      notify(
+        err instanceof Error ? err.message : "Failed to update order status",
+        "error"
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -95,6 +107,12 @@ export default function Orders() {
           Export CSV
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
       {/* Status tabs */}
       <div className="-mx-1 overflow-x-auto px-1 pb-1">

@@ -1,6 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
 import { buildVariantSkuIndex, formatOrderItemVariant, getOrders, listAllProducts, updateOrderStatus, } from "~/lib/api";
+import { useNotify } from "~/lib/notifications";
 import { OrderStatusBadge } from "./dashboard";
 export function meta() {
     return [{ title: "Orders | Dupli1 Admin" }];
@@ -19,15 +20,21 @@ const STATUS_TRANSITIONS = {
     canceled: [],
 };
 export default function Orders() {
+    const { notify } = useNotify();
     const [orders, setOrders] = useState([]);
     const [skuLookup, setSkuLookup] = useState(() => new Map());
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState("all");
     const [expandedId, setExpandedId] = useState(null);
     const [updatingId, setUpdatingId] = useState(null);
     useEffect(() => {
+        setError(null);
         Promise.all([
-            getOrders().catch(() => []),
+            getOrders().catch((err) => {
+                setError(err instanceof Error ? err.message : "Failed to load orders");
+                return [];
+            }),
             listAllProducts().catch(() => []),
         ])
             .then(([orderList, products]) => {
@@ -49,11 +56,14 @@ export default function Orders() {
             const updated = await updateOrderStatus(order.id, newStatus);
             setOrders((os) => os.map((o) => (o.id === order.id ? updated : o)));
         }
+        catch (err) {
+            notify(err instanceof Error ? err.message : "Failed to update order status", "error");
+        }
         finally {
             setUpdatingId(null);
         }
     }
-    return (_jsxs("div", { className: "space-y-6", children: [_jsxs("div", { className: "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-xl font-bold text-[#1C1B1F] sm:text-2xl", children: "Orders" }), _jsxs("p", { className: "mt-0.5 text-sm text-[#6B6480]", children: [orders.length, " orders total"] })] }), _jsxs("div", { className: "flex w-full items-center justify-center gap-2 rounded-xl border border-[#E5E3EE] bg-white px-4 py-2.5 text-sm text-[#6B6480] shadow-[0_1px_3px_rgba(28,27,31,0.04)] sm:w-auto sm:justify-start", children: [_jsx("svg", { className: "size-4", viewBox: "0 0 24 24", fill: "none", children: _jsx("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }) }), "Export CSV"] })] }), _jsx("div", { className: "-mx-1 overflow-x-auto px-1 pb-1", children: _jsx("div", { className: "flex w-max max-w-full flex-wrap gap-1 rounded-xl border border-[#E5E3EE] bg-white p-1 shadow-[0_1px_3px_rgba(28,27,31,0.04)] sm:w-fit", children: STATUS_TABS.map((tab) => {
+    return (_jsxs("div", { className: "space-y-6", children: [_jsxs("div", { className: "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-xl font-bold text-[#1C1B1F] sm:text-2xl", children: "Orders" }), _jsxs("p", { className: "mt-0.5 text-sm text-[#6B6480]", children: [orders.length, " orders total"] })] }), _jsxs("div", { className: "flex w-full items-center justify-center gap-2 rounded-xl border border-[#E5E3EE] bg-white px-4 py-2.5 text-sm text-[#6B6480] shadow-[0_1px_3px_rgba(28,27,31,0.04)] sm:w-auto sm:justify-start", children: [_jsx("svg", { className: "size-4", viewBox: "0 0 24 24", fill: "none", children: _jsx("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }) }), "Export CSV"] })] }), error && (_jsx("div", { className: "rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600", children: error })), _jsx("div", { className: "-mx-1 overflow-x-auto px-1 pb-1", children: _jsx("div", { className: "flex w-max max-w-full flex-wrap gap-1 rounded-xl border border-[#E5E3EE] bg-white p-1 shadow-[0_1px_3px_rgba(28,27,31,0.04)] sm:w-fit", children: STATUS_TABS.map((tab) => {
                         const count = tab.value === "all"
                             ? orders.length
                             : (counts[tab.value] ?? 0);

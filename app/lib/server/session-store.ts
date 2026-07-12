@@ -2,8 +2,11 @@ interface SessionRecord {
   refreshToken: string;
   email: string;
   userId: string;
-  roles: string[];
+  permissions: string[];
+  accountType: string;
   createdAt: number;
+  accessToken: string | null;
+  accessTokenExpiresAt: number;
 }
 
 const sessions = new Map<string, SessionRecord>();
@@ -23,7 +26,8 @@ export function createSession(
   refreshToken: string,
   email: string,
   userId: string,
-  roles: string[] = []
+  permissions: string[] = [],
+  accountType = "customer"
 ): string {
   pruneExpired();
   const sessionId = crypto.randomUUID();
@@ -31,8 +35,11 @@ export function createSession(
     refreshToken,
     email,
     userId,
-    roles,
+    permissions,
+    accountType,
     createdAt: Date.now(),
+    accessToken: null,
+    accessTokenExpiresAt: 0,
   });
   return sessionId;
 }
@@ -49,6 +56,25 @@ export function getSession(sessionId: string): SessionRecord | null {
 
 export function getRefreshToken(sessionId: string): string | null {
   return getSession(sessionId)?.refreshToken ?? null;
+}
+
+/** Cached access token, exchanged from the refresh token, if still fresh. */
+export function getCachedAccessToken(sessionId: string): string | null {
+  const record = getSession(sessionId);
+  if (!record || !record.accessToken) return null;
+  if (Date.now() >= record.accessTokenExpiresAt) return null;
+  return record.accessToken;
+}
+
+export function setCachedAccessToken(
+  sessionId: string,
+  accessToken: string,
+  expiresAt: number
+): void {
+  const record = sessions.get(sessionId);
+  if (!record) return;
+  record.accessToken = accessToken;
+  record.accessTokenExpiresAt = expiresAt;
 }
 
 export function updateSessionRefreshToken(

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useParams } from "react-router";
 import {
   type Product,
   type ProductVariant,
@@ -8,7 +8,6 @@ import {
   formatVariantOption,
   getInventory,
   getManageProduct,
-  getProduct,
   productVariants,
   setInventory,
   updateProduct,
@@ -36,8 +35,6 @@ interface VariantRow extends ProductVariant {
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const [searchParams] = useSearchParams();
-  const category = searchParams.get("category") ?? "bags";
   const [product, setProduct] = useState<Product | null>(null);
   const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,14 +48,7 @@ export default function ProductDetail() {
     setError(null);
 
     try {
-      let p: Product;
-      try {
-        p = await getManageProduct(productId);
-      } catch {
-        const fallback = await getProduct(category, productId);
-        if (!fallback) throw new Error("Product not found");
-        p = fallback;
-      }
+      const p = await getManageProduct(productId);
 
       const variants = productVariants(p);
       const rows = await Promise.all(
@@ -83,7 +73,7 @@ export default function ProductDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, category]);
+  }, [id]);
 
   useEffect(() => {
     void loadProduct();

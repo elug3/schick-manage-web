@@ -8,15 +8,18 @@ function pruneExpired() {
         }
     }
 }
-export function createSession(refreshToken, email, userId, roles = []) {
+export function createSession(refreshToken, email, userId, permissions = [], accountType = "customer") {
     pruneExpired();
     const sessionId = crypto.randomUUID();
     sessions.set(sessionId, {
         refreshToken,
         email,
         userId,
-        roles,
+        permissions,
+        accountType,
         createdAt: Date.now(),
+        accessToken: null,
+        accessTokenExpiresAt: 0,
     });
     return sessionId;
 }
@@ -32,6 +35,22 @@ export function getSession(sessionId) {
 }
 export function getRefreshToken(sessionId) {
     return getSession(sessionId)?.refreshToken ?? null;
+}
+/** Cached access token, exchanged from the refresh token, if still fresh. */
+export function getCachedAccessToken(sessionId) {
+    const record = getSession(sessionId);
+    if (!record || !record.accessToken)
+        return null;
+    if (Date.now() >= record.accessTokenExpiresAt)
+        return null;
+    return record.accessToken;
+}
+export function setCachedAccessToken(sessionId, accessToken, expiresAt) {
+    const record = sessions.get(sessionId);
+    if (!record)
+        return;
+    record.accessToken = accessToken;
+    record.accessTokenExpiresAt = expiresAt;
 }
 export function updateSessionRefreshToken(sessionId, refreshToken) {
     const record = sessions.get(sessionId);

@@ -22,12 +22,21 @@ export default function NewProduct() {
   const [id, setId] = useState("");
   const [brand, setBrand] = useState("");
   const [material, setMaterial] = useState("");
+  const [description, setDescription] = useState("");
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
   const [sku, setSku] = useState("");
   const [price, setPrice] = useState("");
+  const [status, setStatus] = useState("active");
   const [initialStock, setInitialStock] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function applyInitialStock(variantSku: string) {
+    const stockQty = Number.parseInt(initialStock, 10);
+    if (!Number.isNaN(stockQty) && stockQty >= 0 && variantSku) {
+      await setInventory(variantSku, stockQty).catch(() => {});
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,51 +47,55 @@ export default function NewProduct() {
         throw new Error("Enter a valid price for the first variant");
       }
 
-      let productId = id.trim();
-      let variantSku = sku.trim();
-
+      let parent;
       try {
-        const parent = await createProductParent({
+        parent = await createProductParent({
           name: name.trim(),
-          id: productId,
+          id: id.trim(),
           brand: brand.trim(),
           material: material.trim(),
+          description: description.trim() || undefined,
         });
-        productId = parent.id;
+      } catch {
+        // Parent+variant API unavailable — fall back to the legacy flat create.
+        const legacy = await createBagProduct({
+          name: name.trim(),
+          id: id.trim(),
+          brand: brand.trim(),
+          color: color.trim(),
+          material: material.trim(),
+        });
+        await applyInitialStock(legacy.sku ?? legacy.id);
+        notify(`Product created: ${name.trim()}`);
+        navigate(`/products/${encodeURIComponent(legacy.id)}?category=bags`);
+        return;
+      }
 
-        const variant = await createVariant(productId, {
+      // Parent exists now — don't retry via the legacy endpoint below, it'd collide on this ID.
+      try {
+        const variant = await createVariant(parent.id, {
           color: color.trim(),
           size: size.trim(),
           price: parsedPrice,
-          sku: variantSku || undefined,
+          sku: sku.trim() || undefined,
+          status,
         });
-        variantSku = variant.sku;
-      } catch {
-        const legacy = await createBagProduct({
-          name: name.trim(),
-          id: productId,
-          brand: brand.trim(),
-          color: color.trim(),
-          material: material.trim(),
-        });
-        productId = legacy.id;
-        variantSku = legacy.sku ?? legacy.id;
-      }
-
-      const stockQty = Number.parseInt(initialStock, 10);
-      if (!Number.isNaN(stockQty) && stockQty >= 0 && variantSku) {
-        await setInventory(variantSku, stockQty).catch(() => {});
+        await applyInitialStock(variant.sku);
+      } catch (err) {
+        notify(
+          `Style "${name.trim()}" was created, but the first variant failed: ${
+            err instanceof Error ? err.message : "unknown error"
+          }. Add a variant from the product page to finish setup.`,
+          "error"
+        );
+        navigate(`/products/${encodeURIComponent(parent.id)}?category=bags`);
+        return;
       }
 
       notify(`Product created: ${name.trim()}`);
-      navigate(
-        `/products/${encodeURIComponent(productId)}?category=bags`
-      );
+      navigate(`/products/${encodeURIComponent(parent.id)}?category=bags`);
     } catch (err) {
-      notify(
-        err instanceof Error ? err.message : "Failed to create product",
-        "error"
-      );
+      notify(friendlyCreateError(err), "error");
     } finally {
       setLoading(false);
     }
@@ -120,15 +133,14 @@ export default function NewProduct() {
               placeholder="Cassette Bag"
             />
           </Field>
-          <Field label="Product ID" id="id" required>
+          <Field label="Product ID" id="id">
             <input
               id="id"
               type="text"
-              required
               value={id}
               onChange={(e) => setId(e.target.value)}
               className={inputCls}
-              placeholder="BOT-001"
+              placeholder="Auto-generated if empty"
             />
           </Field>
           <Field label="Brand" id="brand" required>
@@ -149,6 +161,16 @@ export default function NewProduct() {
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
               className={inputCls}
+            />
+          </Field>
+          <Field label="Description" id="description">
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className={inputCls}
+              placeholder="Optional"
             />
           </Field>
         </section>
@@ -201,6 +223,18 @@ export default function NewProduct() {
               placeholder="2500"
             />
           </Field>
+          <Field label="Status" id="status">
+            <select
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className={inputCls}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="draft">Draft</option>
+            </select>
+          </Field>
           <Field label="Initial stock" id="stock">
             <input
               id="stock"
@@ -224,6 +258,15 @@ export default function NewProduct() {
       </form>
     </div>
   );
+}
+
+// Backend returns a raw Postgres error string for ID collisions instead of a 409.
+function friendlyCreateError(err: unknown): string {
+  const message = err instanceof Error ? err.message : "";
+  if (/duplicate key|23505|already exists/i.test(message)) {
+    return "A product with this ID already exists. Leave the ID blank to auto-generate one, or choose a different ID.";
+  }
+  return message || "Failed to create product";
 }
 
 function Field({

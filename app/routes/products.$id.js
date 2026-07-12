@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
-import { createVariant, deleteVariant, formatVariantOption, getInventory, getManageProduct, getProduct, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
+import { Link, useParams } from "react-router";
+import { createVariant, deleteVariant, formatVariantOption, getInventory, getManageProduct, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const LOW_STOCK_THRESHOLD = 5;
@@ -12,8 +12,6 @@ export function meta() {
 }
 export default function ProductDetail() {
     const { id } = useParams();
-    const [searchParams] = useSearchParams();
-    const category = searchParams.get("category") ?? "bags";
     const [product, setProduct] = useState(null);
     const [variantRows, setVariantRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,16 +23,7 @@ export default function ProductDetail() {
         setLoading(true);
         setError(null);
         try {
-            let p;
-            try {
-                p = await getManageProduct(productId);
-            }
-            catch {
-                const fallback = await getProduct(category, productId);
-                if (!fallback)
-                    throw new Error("Product not found");
-                p = fallback;
-            }
+            const p = await getManageProduct(productId);
             const variants = productVariants(p);
             const rows = await Promise.all(variants.map(async (variant) => {
                 try {
@@ -58,7 +47,7 @@ export default function ProductDetail() {
         finally {
             setLoading(false);
         }
-    }, [id, category]);
+    }, [id]);
     useEffect(() => {
         void loadProduct();
     }, [loadProduct]);

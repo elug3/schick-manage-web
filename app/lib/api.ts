@@ -258,88 +258,37 @@ export function mapProduct(
   };
 }
 
-export function mapSearchHit(
-  hit: ProductSearchHit,
-  category: string,
-  index = 0
-): Product {
-  return mapProduct(hit, category, index);
-}
-
 async function readError(res: Response, fallback: string): Promise<string> {
   try {
     const body = (await res.json()) as { error?: string };
-    if (body.error) {
-      if (
-        res.status === 403 &&
-        body.error.includes("insufficient role")
-      ) {
-        return `${body.error}. Requires product_manager, admin, or owner.`;
-      }
-      return body.error;
-    }
-    return fallback;
+    return body.error ?? fallback;
   } catch {
     return fallback;
   }
 }
 
-const BAG_FILTERS = ["brand", "color", "material"] as const;
-
-/** List all products (all statuses). Requires auth. */
+/** List all products (all statuses when authenticated with product.read). */
 export async function listAllProducts(): Promise<Product[]> {
   const res = await authedFetch(productPath("/api/v1/products"));
   if (!res.ok) throw new Error(await readError(res, "Failed to list products"));
-  const hits = (await res.json()) as ProductSearchHit[];
-  if (!Array.isArray(hits)) return [];
-  return hits.map((hit, i) => mapProduct(hit, undefined, i));
-}
-
-export async function searchProducts(
-  category: string,
-  filters: Record<string, string> = {}
-): Promise<Product[]> {
-  if (category.toLowerCase() !== "bags") return [];
-
-  const params = new URLSearchParams();
-  for (const key of BAG_FILTERS) {
-    const value = filters[key]?.trim();
-    if (value) params.set(key, value);
-  }
-
-  const query = params.toString();
-  const res = await fetch(
-    productPath(`/api/v1/products/bags${query ? `?${query}` : ""}`),
-    { headers: { Accept: "application/json" } }
-  );
-  if (!res.ok) throw new Error(await readError(res, "Failed to search products"));
   const data = (await res.json()) as ProductSearchResponse;
-  const results = Array.isArray(data.results) ? data.results : [];
-  return results.map((hit, i) => mapSearchHit(hit, category, i));
+  const hits = Array.isArray(data.results) ? data.results : [];
+  return hits.map((hit, i) => mapProduct(hit, undefined, i));
 }
 
 export async function getProducts(): Promise<Product[]> {
   return listAllProducts();
 }
 
-export async function getProduct(
-  category: string,
-  id: string
-): Promise<Product | null> {
-  const products = await searchProducts(category);
-  return products.find((p) => p.id === id || p.sku === id) ?? null;
-}
-
+/** Parent + embedded variants; falls back to the all-status list for drafts/archived. */
 export async function getManageProduct(id: string): Promise<Product> {
   try {
     return await getProductDetail(id);
   } catch {
-    const res = await authedFetch(
-      productPath(`/api/v1/products/${encodeURIComponent(id)}/manage`)
-    );
-    if (!res.ok) throw new Error(await readError(res, "Product not found"));
-    const hit = (await res.json()) as ProductSearchHit;
-    return mapProduct(hit);
+    const all = await listAllProducts();
+    const found = all.find((p) => p.id === id || p.sku === id);
+    if (!found) throw new Error("Product not found");
+    return found;
   }
 }
 
@@ -360,8 +309,8 @@ export async function uploadProductImage(
   const form = new FormData();
   form.append("image", file);
   const res = await authedFetch(
-    productPath(`/api/v1/products/${encodeURIComponent(id)}/image`),
-    { method: "PUT", body: form }
+    productPath(`/api/v1/products/${encodeURIComponent(id)}/images`),
+    { method: "POST", body: form }
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to upload image"));
   const hit = (await res.json()) as ProductSearchHit;
@@ -761,7 +710,7 @@ async function inventoryQuantityForSku(sku: string): Promise<number | null> {
 
 /** Stock alerts from inventory service keyed by variant SKU. */
 export async function getCatalogStockAlerts(): Promise<VariantStockAlert[]> {
-  const products = await listAllProducts().catch(() => [] as Product[]);
+  const products = await listAllProducts();
   const rows: VariantStockAlert[] = [];
 
   await Promise.all(
@@ -788,39 +737,73 @@ export async function getCatalogStockAlerts(): Promise<VariantStockAlert[]> {
 
 // ── Auth (users) ─────────────────────────────────────────────────────────────
 
-export const MANAGER_ROLES = [
-  "owner",
-  "admin",
-  "user_manager",
-  "customer_registrar",
-  "product_manager",
+/** Wildcard permission tokens (see shared/pkg/permissions/catalog.go). */
+export const PERMISSION_WILDCARDS = [
+  "*",
+  "admin.*",
+  "product.*",
+  "coupon.*",
+  "user.*",
 ] as const;
 
-export const ALL_ROLES = [...MANAGER_ROLES, "customer"] as const;
+/** Concrete permission catalog, mirrored from shared/pkg/permissions/catalog.go. */
+export const PERMISSION_CATALOG = [
+  "user.create",
+  "user.read",
+  "user.permissions.update",
+  "user.password.update",
+  "user.status.update",
+  "product.create",
+  "product.update",
+  "product.delete",
+  "product.read",
+  "product.variant.create",
+  "product.variant.update",
+  "product.variant.delete",
+  "product.image.upload",
+  "coupon.read",
+  "coupon.create",
+  "coupon.update",
+  "coupon.delete",
+  "inventory.stock.read",
+  "inventory.stock.write",
+  "inventory.reservation.manage",
+  "order.create",
+  "order.read.all",
+  "order.ship",
+  "order.status.update",
+  "cart.read",
+  "payment.create",
+  "payment.read.all",
+] as const;
 
-export type AuthRole = (typeof ALL_ROLES)[number];
+export const ALL_PERMISSIONS = [
+  ...PERMISSION_WILDCARDS,
+  ...PERMISSION_CATALOG,
+] as const;
+
+export type AccountType = "customer" | "admin" | "service";
 
 export interface AuthUser {
   user_id: string;
   email: string;
-  roles: string[];
+  account_type: AccountType;
+  permissions: string[];
   is_active: boolean;
   locked_at: string | null;
   failed_login_attempts: number;
 }
 
 export function isManagerUser(user: AuthUser): boolean {
-  return user.roles.some((role) =>
-    (MANAGER_ROLES as readonly string[]).includes(role)
-  );
+  return user.account_type !== "customer";
 }
 
 export function isCustomerUser(user: AuthUser): boolean {
-  return user.roles.includes("customer");
+  return user.account_type === "customer";
 }
 
-export function formatRoles(roles: string[]): string {
-  return roles.length > 0 ? roles.join(", ") : "—";
+export function formatPermissions(permissions: string[]): string {
+  return permissions.length > 0 ? permissions.join(", ") : "—";
 }
 
 export async function listUsers(): Promise<AuthUser[]> {
@@ -848,19 +831,23 @@ export async function registerUser(
   return res.json() as Promise<{ user_id: string }>;
 }
 
-export async function setUserRoles(
+export async function setUserPermissions(
   userId: string,
-  roles: string[]
+  permissions: string[],
+  accountType?: AccountType
 ): Promise<AuthUser> {
   const res = await authedFetch(
-    authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/roles`),
+    authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/permissions`),
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles }),
+      body: JSON.stringify(
+        accountType ? { permissions, account_type: accountType } : { permissions }
+      ),
     }
   );
-  if (!res.ok) throw new Error(await readError(res, "Failed to update roles"));
+  if (!res.ok)
+    throw new Error(await readError(res, "Failed to update permissions"));
   return res.json() as Promise<AuthUser>;
 }
 
@@ -918,7 +905,7 @@ export interface AnalyticsSummary {
 }
 
 export async function getAnalytics(): Promise<AnalyticsSummary | null> {
-  const orders = await getOrders().catch(() => [] as Order[]);
+  const orders = await getOrders();
   if (orders.length === 0) return null;
 
   const now = Date.now();

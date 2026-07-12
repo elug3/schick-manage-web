@@ -12,23 +12,25 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            // Only proxy gateway API paths; /auth/session/* is handled by React Router.
-            "/auth/api": {
+            // Trailing slash matters: Vite matches proxy keys by plain string prefix, so
+            // "/product" without it would also swallow page routes like /products and
+            // /products/new. /auth/session/* is handled by React Router, not proxied.
+            "/auth/api/": {
                 target: "http://localhost:8080",
                 changeOrigin: true,
                 rewrite: stripGatewayPrefix("/auth"),
             },
-            "/product": {
+            "/product/": {
                 target: "http://localhost:8080",
                 changeOrigin: true,
                 rewrite: stripGatewayPrefix("/product"),
             },
-            "/inventory": {
+            "/inventory/": {
                 target: "http://localhost:8080",
                 changeOrigin: true,
                 rewrite: stripGatewayPrefix("/inventory"),
             },
-            "/order": {
+            "/order/": {
                 target: "http://localhost:8080",
                 changeOrigin: true,
                 rewrite: stripGatewayPrefix("/order"),

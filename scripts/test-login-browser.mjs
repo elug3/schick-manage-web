@@ -28,12 +28,17 @@ async function main() {
   await page.waitForSelector("text=Dashboard", { timeout: 10000 });
 
   const token = await page.evaluate(() => localStorage.getItem("dupli1_at"));
-  if (!token) throw new Error("Access token not stored in localStorage");
+  if (token) throw new Error("Access token should not be cached in localStorage");
+
+  const cookies = await page.context().cookies();
+  if (!cookies.some((c) => c.name === "dupli1_sid" && c.httpOnly)) {
+    throw new Error("Expected httpOnly dupli1_sid session cookie after login");
+  }
 
   console.log("PASS: Browser redirected to dashboard after login");
   console.log(`PASS: URL is ${url}`);
   console.log("PASS: Dashboard content visible");
-  console.log("PASS: Access token stored");
+  console.log("PASS: No access token cached client-side; session cookie only");
 
   await browser.close();
   console.log("\nBrowser login test passed.");

@@ -42,18 +42,8 @@ export default function AdminLayout() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, location.pathname, location.state]);
-
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    document.body.style.overflow = sidebarOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [sidebarOpen]);
+    // Once per layout mount: re-running per navigation flashed the whole sidebar behind a spinner.
+  }, []);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -85,7 +75,7 @@ export default function AdminLayout() {
   if (!user) return null;
 
   return (
-    <div className="flex min-h-dvh overflow-hidden bg-[#F4F3F8]">
+    <div className="flex h-dvh overflow-hidden bg-[#F4F3F8]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -160,7 +150,7 @@ export default function AdminLayout() {
                 {user.email}
               </p>
               <p className="text-[10px] text-[#7B70A8]">
-                {user.role ?? "Administrator"}
+                {user.accountType ?? "Administrator"}
               </p>
             </div>
             <button

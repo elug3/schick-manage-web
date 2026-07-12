@@ -11,8 +11,10 @@ import {
 import {
   createSession,
   deleteSession,
+  getCachedAccessToken,
   getRefreshToken,
   getSession,
+  setCachedAccessToken,
 } from "./session-store";
 
 interface LoginResponse {
@@ -26,7 +28,8 @@ interface RefreshResponse {
 interface AuthMeResponse {
   user_id: string;
   email: string;
-  roles?: string[];
+  account_type?: string;
+  permissions?: string[];
 }
 
 function jsonResponse(
@@ -56,6 +59,46 @@ async function exchangeRefreshToken(
   if (!res.ok) return null;
   const body = (await res.json()) as RefreshResponse;
   return { accessToken: body.token };
+}
+
+/** Refresh this long before the JWT's actual `exp` to absorb request latency and clock drift. */
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 30_000;
+
+/** Read `exp` (seconds) from an unverified JWT payload; the gateway still verifies the signature. */
+function jwtExpiryMs(token: string): number | null {
+  try {
+    const payload = token.split(".")[1];
+    const json = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      exp?: number;
+    };
+    return typeof json.exp === "number" ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheAccessToken(sessionId: string, accessToken: string): void {
+  const expiresAt = jwtExpiryMs(accessToken);
+  setCachedAccessToken(
+    sessionId,
+    accessToken,
+    (expiresAt ?? Date.now()) - ACCESS_TOKEN_REFRESH_SKEW_MS
+  );
+}
+
+/** Exchange the session's refresh token for an access token, reusing a cached one while it's fresh. */
+async function cachedAccessTokenExchange(
+  sessionId: string,
+  refreshToken: string
+): Promise<{ accessToken: string } | null> {
+  const cached = getCachedAccessToken(sessionId);
+  if (cached) return { accessToken: cached };
+
+  const exchanged = await exchangeRefreshToken(refreshToken);
+  if (!exchanged) return null;
+
+  cacheAccessToken(sessionId, exchanged.accessToken);
+  return exchanged;
 }
 
 async function fetchAuthProfile(
@@ -101,46 +144,29 @@ export async function handleSessionLogin(request: Request): Promise<Response> {
     (await fetchAuthProfile(exchanged.accessToken)) ?? {
       user_id: "",
       email,
-      roles: [],
+      account_type: "customer",
+      permissions: [],
     };
 
   const sessionId = createSession(
     refresh_token,
     profile.email || email,
     profile.user_id,
-    profile.roles ?? []
+    profile.permissions ?? [],
+    profile.account_type ?? "customer"
   );
+  cacheAccessToken(sessionId, exchanged.accessToken);
 
   return jsonResponse(
-    { access_token: exchanged.accessToken, email },
+    { email },
     { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } }
   );
 }
 
 export async function handleSessionRefresh(request: Request): Promise<Response> {
-  const sessionId = getSessionId(request);
-  if (!sessionId) {
-    return jsonResponse({ error: "No session" }, { status: 401 });
-  }
-
-  const refreshToken = getRefreshToken(sessionId);
-  if (!refreshToken) {
-    return jsonResponse({ error: "Session expired" }, {
-      status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-    });
-  }
-
-  const exchanged = await exchangeRefreshToken(refreshToken);
-  if (!exchanged) {
-    deleteSession(sessionId);
-    return jsonResponse({ error: "Session expired" }, {
-      status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-    });
-  }
-
-  return jsonResponse({ access_token: exchanged.accessToken });
+  const tokenResult = await accessTokenFromSession(request);
+  if (tokenResult instanceof Response) return tokenResult;
+  return jsonResponse({ access_token: tokenResult.accessToken });
 }
 
 export async function handleSessionLogout(request: Request): Promise<Response> {
@@ -178,7 +204,8 @@ export async function handleSessionMe(request: Request): Promise<Response> {
   return jsonResponse({
     email: session.email,
     user_id: session.userId,
-    roles: session.roles,
+    permissions: session.permissions,
+    account_type: session.accountType,
   });
 }
 
@@ -186,27 +213,8 @@ export async function handleSessionMe(request: Request): Promise<Response> {
 export async function handleSessionRegister(
   request: Request
 ): Promise<Response> {
-  const sessionId = getSessionId(request);
-  if (!sessionId) {
-    return jsonResponse({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const refreshToken = getRefreshToken(sessionId);
-  if (!refreshToken) {
-    return jsonResponse({ error: "Session expired" }, {
-      status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-    });
-  }
-
-  const exchanged = await exchangeRefreshToken(refreshToken);
-  if (!exchanged) {
-    deleteSession(sessionId);
-    return jsonResponse({ error: "Session expired" }, {
-      status: 401,
-      headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-    });
-  }
+  const tokenResult = await accessTokenFromSession(request);
+  if (tokenResult instanceof Response) return tokenResult;
 
   let body: { email?: string; password?: string };
   try {
@@ -225,7 +233,7 @@ export async function handleSessionRegister(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${exchanged.accessToken}`,
+      Authorization: `Bearer ${tokenResult.accessToken}`,
     },
     body: JSON.stringify({ email: body.email, password: body.password }),
   });
@@ -257,7 +265,7 @@ async function accessTokenFromSession(
     });
   }
 
-  const exchanged = await exchangeRefreshToken(refreshToken);
+  const exchanged = await cachedAccessTokenExchange(sessionId, refreshToken);
   if (!exchanged) {
     deleteSession(sessionId);
     return jsonResponse({ error: "Session expired" }, {

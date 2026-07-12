@@ -18,16 +18,26 @@ export default function Dashboard() {
   const [stockAlerts, setStockAlerts] = useState<VariantStockAlert[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
+    const failures: string[] = [];
+    const capture = <T,>(label: string, fallback: T) => (err: unknown) => {
+      failures.push(`${label}: ${err instanceof Error ? err.message : "request failed"}`);
+      return fallback;
+    };
+
     Promise.all([
-      getProducts().catch(() => [] as Product[]),
-      getCatalogStockAlerts().catch(() => [] as VariantStockAlert[]),
-      getOrders().catch(() => [] as Order[]).then((o) => o.slice(0, 5)),
+      getProducts().catch(capture("Products", [] as Product[])),
+      getCatalogStockAlerts().catch(capture("Stock alerts", [] as VariantStockAlert[])),
+      getOrders()
+        .catch(capture("Orders", [] as Order[]))
+        .then((o) => o.slice(0, 5)),
     ]).then(([prods, alerts, orders]) => {
       setProducts(prods);
       setStockAlerts(alerts);
       setRecentOrders(orders);
+      setErrors(failures);
       setLoading(false);
     });
   }, []);
@@ -35,6 +45,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <PageHeader />
+      {errors.length > 0 && (
+        <div className="space-y-1 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {errors.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
+      )}
       <StatsGrid products={products} loading={loading} />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

@@ -7,14 +7,23 @@ export function meta() {
 export default function Analytics() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [period, setPeriod] = useState("30d");
     useEffect(() => {
+        setError(null);
         getAnalytics()
             .then(setData)
+            .catch((err) => {
+            setData(null);
+            setError(err instanceof Error ? err.message : "Failed to load analytics");
+        })
             .finally(() => setLoading(false));
     }, []);
     if (loading) {
         return (_jsx("div", { className: "flex items-center justify-center py-32", children: _jsx("div", { className: "h-7 w-7 animate-spin rounded-full border-2 border-[#6D4AFF] border-t-transparent" }) }));
+    }
+    if (error) {
+        return (_jsxs("div", { className: "space-y-4", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-xl font-bold text-[#1C1B1F] sm:text-2xl", children: "Analytics" }), _jsx("p", { className: "mt-0.5 text-sm text-[#6B6480]", children: "Derived from order service data" })] }), _jsx("div", { className: "rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600", children: error })] }));
     }
     if (!data) {
         return (_jsxs("div", { className: "space-y-4", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-xl font-bold text-[#1C1B1F] sm:text-2xl", children: "Analytics" }), _jsx("p", { className: "mt-0.5 text-sm text-[#6B6480]", children: "Derived from order service data" })] }), _jsxs("div", { className: "rounded-2xl border border-[#E5E3EE] bg-white p-12 text-center shadow-[0_1px_4px_rgba(28,27,31,0.04)]", children: [_jsx("p", { className: "font-semibold text-[#1C1B1F]", children: "No order data yet" }), _jsxs("p", { className: "mt-1 text-sm text-[#9D98B3]", children: ["Analytics are computed from ", _jsx("code", { className: "text-xs", children: "GET /order/api/v1/orders" }), "."] })] })] }));

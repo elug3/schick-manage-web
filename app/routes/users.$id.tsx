@@ -1,26 +1,29 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
-  ALL_ROLES,
+  type AccountType,
+  ALL_PERMISSIONS,
   type AuthUser,
-  formatRoles,
+  formatPermissions,
   getUserById,
   setUserPassword,
-  setUserRoles,
+  setUserPermissions,
   setUserStatus,
 } from "~/lib/api";
+
+const ACCOUNT_TYPES: AccountType[] = ["customer", "admin", "service"];
 import { useNotify } from "~/lib/notifications";
 
 export function meta() {
   return [{ title: "User | Dupli1 Admin" }];
 }
 
-type DetailTab = "state" | "credentials" | "role";
+type DetailTab = "state" | "credentials" | "permissions";
 
 const DETAIL_TABS: { label: string; value: DetailTab }[] = [
   { label: "State", value: "state" },
   { label: "Credentials", value: "credentials" },
-  { label: "Role", value: "role" },
+  { label: "Permissions", value: "permissions" },
 ];
 
 const inputCls =
@@ -96,7 +99,8 @@ export default function UserDetail() {
         <h1 className="text-2xl font-bold text-[#1C1B1F]">{user.email}</h1>
         <p className="mt-1 font-mono text-sm text-[#6B6480]">{user.user_id}</p>
         <p className="mt-2 text-sm text-[#6B6480]">
-          Roles: {formatRoles(user.roles)}
+          Account type: {user.account_type} · Permissions:{" "}
+          {formatPermissions(user.permissions)}
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2 border-b border-[#F0EEF8] pb-4">
@@ -121,8 +125,8 @@ export default function UserDetail() {
             <StateTab user={user} onUpdated={setUser} />
           )}
           {activeTab === "credentials" && <CredentialsTab userId={user.user_id} />}
-          {activeTab === "role" && (
-            <RoleTab user={user} onUpdated={setUser} />
+          {activeTab === "permissions" && (
+            <PermissionsTab user={user} onUpdated={setUser} />
           )}
         </div>
       </div>
@@ -289,7 +293,7 @@ function CredentialsTab({ userId }: { userId: string }) {
   );
 }
 
-function RoleTab({
+function PermissionsTab({
   user,
   onUpdated,
 }: {
@@ -297,36 +301,42 @@ function RoleTab({
   onUpdated: (user: AuthUser) => void;
 }) {
   const { notify } = useNotify();
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(user.roles);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
+    user.permissions
+  );
+  const [accountType, setAccountType] = useState<AccountType>(
+    user.account_type
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setSelectedRoles(user.roles);
-  }, [user.roles]);
+    setSelectedPermissions(user.permissions);
+    setAccountType(user.account_type);
+  }, [user.permissions, user.account_type]);
 
-  function toggleRole(role: string) {
-    setSelectedRoles((current) =>
-      current.includes(role)
-        ? current.filter((value) => value !== role)
-        : [...current, role]
+  function togglePermission(permission: string) {
+    setSelectedPermissions((current) =>
+      current.includes(permission)
+        ? current.filter((value) => value !== permission)
+        : [...current, permission]
     );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (selectedRoles.length === 0) {
-      notify("Select at least one role", "error");
-      return;
-    }
 
     setSaving(true);
     try {
-      const updated = await setUserRoles(user.user_id, selectedRoles);
+      const updated = await setUserPermissions(
+        user.user_id,
+        selectedPermissions,
+        accountType
+      );
       onUpdated(updated);
-      notify("Roles updated");
+      notify("Permissions updated");
     } catch (err) {
       notify(
-        err instanceof Error ? err.message : "Failed to update roles",
+        err instanceof Error ? err.message : "Failed to update permissions",
         "error"
       );
     } finally {
@@ -337,26 +347,49 @@ function RoleTab({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-[#6B6480]">
-        Replace role assignments via{" "}
+        Replace permission assignments via{" "}
         <code className="text-xs">
-          PATCH /auth/api/v1/auth/users/{"{id}"}/roles
+          PATCH /auth/api/v1/auth/users/{"{id}"}/permissions
         </code>
-        .
+        . An empty list leaves the account with no elevated access.
       </p>
 
+      <div className="space-y-1.5">
+        <label
+          htmlFor="account-type"
+          className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]"
+        >
+          Account type
+        </label>
+        <select
+          id="account-type"
+          value={accountType}
+          onChange={(e) => setAccountType(e.target.value as AccountType)}
+          className={inputCls}
+        >
+          {ACCOUNT_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid gap-2 sm:grid-cols-2">
-        {ALL_ROLES.map((role) => (
+        {ALL_PERMISSIONS.map((permission) => (
           <label
-            key={role}
+            key={permission}
             className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] px-4 py-3 text-sm text-[#1C1B1F]"
           >
             <input
               type="checkbox"
-              checked={selectedRoles.includes(role)}
-              onChange={() => toggleRole(role)}
+              checked={selectedPermissions.includes(permission)}
+              onChange={() => togglePermission(permission)}
               className="size-4 rounded border-[#C8C4D8] text-[#6D4AFF] focus:ring-[#6D4AFF]/20"
             />
-            <span className="font-medium">{role}</span>
+            <span className="font-mono text-xs font-medium">
+              {permission}
+            </span>
           </label>
         ))}
       </div>
@@ -366,7 +399,7 @@ function RoleTab({
         disabled={saving}
         className="rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5A38E8] disabled:opacity-60"
       >
-        {saving ? "Saving…" : "Save roles"}
+        {saving ? "Saving…" : "Save permissions"}
       </button>
     </form>
   );

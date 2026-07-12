@@ -1,7 +1,8 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { ALL_ROLES, formatRoles, getUserById, setUserPassword, setUserRoles, setUserStatus, } from "~/lib/api";
+import { ALL_PERMISSIONS, formatPermissions, getUserById, setUserPassword, setUserPermissions, setUserStatus, } from "~/lib/api";
+const ACCOUNT_TYPES = ["customer", "admin", "service"];
 import { useNotify } from "~/lib/notifications";
 export function meta() {
     return [{ title: "User | Dupli1 Admin" }];
@@ -9,7 +10,7 @@ export function meta() {
 const DETAIL_TABS = [
     { label: "State", value: "state" },
     { label: "Credentials", value: "credentials" },
-    { label: "Role", value: "role" },
+    { label: "Permissions", value: "permissions" },
 ];
 const inputCls = "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition placeholder:text-[#B4B0C8] focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
 export default function UserDetail() {
@@ -55,12 +56,12 @@ export default function UserDetail() {
     if (error || !user) {
         return (_jsxs("div", { className: "space-y-4", children: [_jsx(Link, { to: "/users", className: "text-sm text-[#6D4AFF] hover:underline", children: "\u2190 Back to users" }), _jsx("div", { className: "rounded-2xl border border-[#E5E3EE] bg-white p-10 text-center text-[#6B6480]", children: error ?? "User not found" })] }));
     }
-    return (_jsxs("div", { className: "space-y-6", children: [_jsx(Link, { to: "/users", className: "text-sm text-[#6D4AFF] hover:underline", children: "\u2190 Back to users" }), _jsxs("div", { className: "rounded-2xl border border-[#E5E3EE] bg-white p-5 shadow-[0_1px_4px_rgba(28,27,31,0.04)] sm:p-8", children: [_jsx("h1", { className: "text-2xl font-bold text-[#1C1B1F]", children: user.email }), _jsx("p", { className: "mt-1 font-mono text-sm text-[#6B6480]", children: user.user_id }), _jsxs("p", { className: "mt-2 text-sm text-[#6B6480]", children: ["Roles: ", formatRoles(user.roles)] }), _jsx("div", { className: "mt-6 flex flex-wrap gap-2 border-b border-[#F0EEF8] pb-4", children: DETAIL_TABS.map((tab) => (_jsx("button", { onClick: () => setActiveTab(tab.value), className: [
+    return (_jsxs("div", { className: "space-y-6", children: [_jsx(Link, { to: "/users", className: "text-sm text-[#6D4AFF] hover:underline", children: "\u2190 Back to users" }), _jsxs("div", { className: "rounded-2xl border border-[#E5E3EE] bg-white p-5 shadow-[0_1px_4px_rgba(28,27,31,0.04)] sm:p-8", children: [_jsx("h1", { className: "text-2xl font-bold text-[#1C1B1F]", children: user.email }), _jsx("p", { className: "mt-1 font-mono text-sm text-[#6B6480]", children: user.user_id }), _jsxs("p", { className: "mt-2 text-sm text-[#6B6480]", children: ["Account type: ", user.account_type, " \u00B7 Permissions:", " ", formatPermissions(user.permissions)] }), _jsx("div", { className: "mt-6 flex flex-wrap gap-2 border-b border-[#F0EEF8] pb-4", children: DETAIL_TABS.map((tab) => (_jsx("button", { onClick: () => setActiveTab(tab.value), className: [
                                 "rounded-full px-4 py-1.5 text-sm font-medium transition",
                                 activeTab === tab.value
                                     ? "bg-[#6D4AFF] text-white"
                                     : "border border-[#E5E3EE] bg-white text-[#6B6480] hover:border-[#6D4AFF]/40",
-                            ].join(" "), children: tab.label }, tab.value))) }), _jsxs("div", { className: "mt-6", children: [activeTab === "state" && (_jsx(StateTab, { user: user, onUpdated: setUser })), activeTab === "credentials" && _jsx(CredentialsTab, { userId: user.user_id }), activeTab === "role" && (_jsx(RoleTab, { user: user, onUpdated: setUser }))] })] })] }));
+                            ].join(" "), children: tab.label }, tab.value))) }), _jsxs("div", { className: "mt-6", children: [activeTab === "state" && (_jsx(StateTab, { user: user, onUpdated: setUser })), activeTab === "credentials" && _jsx(CredentialsTab, { userId: user.user_id }), activeTab === "permissions" && (_jsx(PermissionsTab, { user: user, onUpdated: setUser }))] })] })] }));
 }
 function StateTab({ user, onUpdated, }) {
     const { notify } = useNotify();
@@ -121,38 +122,36 @@ function CredentialsTab({ userId }) {
     }
     return (_jsxs("form", { onSubmit: handleSubmit, className: "mx-auto max-w-md space-y-4", children: [_jsxs("p", { className: "text-sm text-[#6B6480]", children: ["Set a new password via", " ", _jsxs("code", { className: "text-xs", children: ["PATCH /auth/api/v1/auth/users/", "{id}", "/password"] }), "."] }), _jsxs("div", { className: "space-y-1.5", children: [_jsx("label", { htmlFor: "password", className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "New password" }), _jsx("input", { id: "password", type: "password", required: true, minLength: 8, value: password, onChange: (e) => setPassword(e.target.value), className: inputCls })] }), _jsxs("div", { className: "space-y-1.5", children: [_jsx("label", { htmlFor: "confirm-password", className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Confirm password" }), _jsx("input", { id: "confirm-password", type: "password", required: true, minLength: 8, value: confirmPassword, onChange: (e) => setConfirmPassword(e.target.value), className: inputCls })] }), _jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5A38E8] disabled:opacity-60", children: saving ? "Saving…" : "Update password" })] }));
 }
-function RoleTab({ user, onUpdated, }) {
+function PermissionsTab({ user, onUpdated, }) {
     const { notify } = useNotify();
-    const [selectedRoles, setSelectedRoles] = useState(user.roles);
+    const [selectedPermissions, setSelectedPermissions] = useState(user.permissions);
+    const [accountType, setAccountType] = useState(user.account_type);
     const [saving, setSaving] = useState(false);
     useEffect(() => {
-        setSelectedRoles(user.roles);
-    }, [user.roles]);
-    function toggleRole(role) {
-        setSelectedRoles((current) => current.includes(role)
-            ? current.filter((value) => value !== role)
-            : [...current, role]);
+        setSelectedPermissions(user.permissions);
+        setAccountType(user.account_type);
+    }, [user.permissions, user.account_type]);
+    function togglePermission(permission) {
+        setSelectedPermissions((current) => current.includes(permission)
+            ? current.filter((value) => value !== permission)
+            : [...current, permission]);
     }
     async function handleSubmit(e) {
         e.preventDefault();
-        if (selectedRoles.length === 0) {
-            notify("Select at least one role", "error");
-            return;
-        }
         setSaving(true);
         try {
-            const updated = await setUserRoles(user.user_id, selectedRoles);
+            const updated = await setUserPermissions(user.user_id, selectedPermissions, accountType);
             onUpdated(updated);
-            notify("Roles updated");
+            notify("Permissions updated");
         }
         catch (err) {
-            notify(err instanceof Error ? err.message : "Failed to update roles", "error");
+            notify(err instanceof Error ? err.message : "Failed to update permissions", "error");
         }
         finally {
             setSaving(false);
         }
     }
-    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [_jsxs("p", { className: "text-sm text-[#6B6480]", children: ["Replace role assignments via", " ", _jsxs("code", { className: "text-xs", children: ["PATCH /auth/api/v1/auth/users/", "{id}", "/roles"] }), "."] }), _jsx("div", { className: "grid gap-2 sm:grid-cols-2", children: ALL_ROLES.map((role) => (_jsxs("label", { className: "flex cursor-pointer items-center gap-3 rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] px-4 py-3 text-sm text-[#1C1B1F]", children: [_jsx("input", { type: "checkbox", checked: selectedRoles.includes(role), onChange: () => toggleRole(role), className: "size-4 rounded border-[#C8C4D8] text-[#6D4AFF] focus:ring-[#6D4AFF]/20" }), _jsx("span", { className: "font-medium", children: role })] }, role))) }), _jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5A38E8] disabled:opacity-60", children: saving ? "Saving…" : "Save roles" })] }));
+    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [_jsxs("p", { className: "text-sm text-[#6B6480]", children: ["Replace permission assignments via", " ", _jsxs("code", { className: "text-xs", children: ["PATCH /auth/api/v1/auth/users/", "{id}", "/permissions"] }), ". An empty list leaves the account with no elevated access."] }), _jsxs("div", { className: "space-y-1.5", children: [_jsx("label", { htmlFor: "account-type", className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Account type" }), _jsx("select", { id: "account-type", value: accountType, onChange: (e) => setAccountType(e.target.value), className: inputCls, children: ACCOUNT_TYPES.map((type) => (_jsx("option", { value: type, children: type }, type))) })] }), _jsx("div", { className: "grid gap-2 sm:grid-cols-2", children: ALL_PERMISSIONS.map((permission) => (_jsxs("label", { className: "flex cursor-pointer items-center gap-3 rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] px-4 py-3 text-sm text-[#1C1B1F]", children: [_jsx("input", { type: "checkbox", checked: selectedPermissions.includes(permission), onChange: () => togglePermission(permission), className: "size-4 rounded border-[#C8C4D8] text-[#6D4AFF] focus:ring-[#6D4AFF]/20" }), _jsx("span", { className: "font-mono text-xs font-medium", children: permission })] }, permission))) }), _jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5A38E8] disabled:opacity-60", children: saving ? "Saving…" : "Save permissions" })] }));
 }
 function formatDate(value) {
     const date = new Date(value);

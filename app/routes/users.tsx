@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   type AuthUser,
-  formatRoles,
+  formatPermissions,
   isCustomerUser,
   isManagerUser,
   listUsers,
@@ -58,7 +58,8 @@ export default function Users() {
       return (
         user.email.toLowerCase().includes(needle) ||
         user.user_id.toLowerCase().includes(needle) ||
-        user.roles.some((role) => role.toLowerCase().includes(needle))
+        user.account_type.toLowerCase().includes(needle) ||
+        user.permissions.some((perm) => perm.toLowerCase().includes(needle))
       );
     });
   }, [users, activeTab, search]);
@@ -104,7 +105,7 @@ export default function Users() {
 
       <input
         type="search"
-        placeholder="Filter by email, ID, or role…"
+        placeholder="Filter by email, ID, or permission…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full max-w-md rounded-xl border border-[#E5E3EE] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20"
@@ -137,7 +138,7 @@ export default function Users() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#F0EEF8] bg-[#FAFAFA] text-left">
-                    {["Email", "Roles", "Status", ""].map((heading) => (
+                    {["Email", "Permissions", "Status", ""].map((heading) => (
                       <th
                         key={heading}
                         className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]"
@@ -160,7 +161,7 @@ export default function Users() {
                         </p>
                       </td>
                       <td className="px-5 py-3.5 text-[#6B6480]">
-                        {formatRoles(user.roles)}
+                        {formatPermissions(user.permissions)}
                       </td>
                       <td className="px-5 py-3.5">
                         <UserStatusBadge user={user} />
@@ -194,7 +195,7 @@ function UserCard({ user }: { user: AuthUser }) {
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[#6B6480]">
         <span className="rounded-full bg-[#F4F3F8] px-2.5 py-1">
-          {formatRoles(user.roles)}
+          {formatPermissions(user.permissions)}
         </span>
         <UserStatusBadge user={user} />
       </div>

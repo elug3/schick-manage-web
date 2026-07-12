@@ -1,7 +1,7 @@
 import { backendGet, backendPost, serviceUrl } from "./backend";
 import { gatewayRelativePath, proxyGatewayRequestForPath, } from "./gateway-proxy";
 import { clearSessionCookieHeader, getSessionId, setSessionCookieHeader, } from "./session-cookie";
-import { createSession, deleteSession, getRefreshToken, getSession, } from "./session-store";
+import { createSession, deleteSession, getCachedAccessToken, getRefreshToken, getSession, setCachedAccessToken, } from "./session-store";
 function jsonResponse(body, init = {}) {
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
@@ -24,6 +24,34 @@ async function exchangeRefreshToken(refreshToken) {
         return null;
     const body = (await res.json());
     return { accessToken: body.token };
+}
+/** Refresh this long before the JWT's actual `exp` to absorb request latency and clock drift. */
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 30_000;
+/** Read `exp` (seconds) from an unverified JWT payload; the gateway still verifies the signature. */
+function jwtExpiryMs(token) {
+    try {
+        const payload = token.split(".")[1];
+        const json = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+        return typeof json.exp === "number" ? json.exp * 1000 : null;
+    }
+    catch {
+        return null;
+    }
+}
+function cacheAccessToken(sessionId, accessToken) {
+    const expiresAt = jwtExpiryMs(accessToken);
+    setCachedAccessToken(sessionId, accessToken, (expiresAt ?? Date.now()) - ACCESS_TOKEN_REFRESH_SKEW_MS);
+}
+/** Exchange the session's refresh token for an access token, reusing a cached one while it's fresh. */
+async function cachedAccessTokenExchange(sessionId, refreshToken) {
+    const cached = getCachedAccessToken(sessionId);
+    if (cached)
+        return { accessToken: cached };
+    const exchanged = await exchangeRefreshToken(refreshToken);
+    if (!exchanged)
+        return null;
+    cacheAccessToken(sessionId, exchanged.accessToken);
+    return exchanged;
 }
 async function fetchAuthProfile(accessToken) {
     const res = await backendGet("auth", "/api/v1/auth/me", accessToken);
@@ -59,32 +87,18 @@ export async function handleSessionLogin(request) {
     const profile = (await fetchAuthProfile(exchanged.accessToken)) ?? {
         user_id: "",
         email,
-        roles: [],
+        account_type: "customer",
+        permissions: [],
     };
-    const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.roles ?? []);
-    return jsonResponse({ access_token: exchanged.accessToken, email }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } });
+    const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.permissions ?? [], profile.account_type ?? "customer");
+    cacheAccessToken(sessionId, exchanged.accessToken);
+    return jsonResponse({ email }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } });
 }
 export async function handleSessionRefresh(request) {
-    const sessionId = getSessionId(request);
-    if (!sessionId) {
-        return jsonResponse({ error: "No session" }, { status: 401 });
-    }
-    const refreshToken = getRefreshToken(sessionId);
-    if (!refreshToken) {
-        return jsonResponse({ error: "Session expired" }, {
-            status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-        });
-    }
-    const exchanged = await exchangeRefreshToken(refreshToken);
-    if (!exchanged) {
-        deleteSession(sessionId);
-        return jsonResponse({ error: "Session expired" }, {
-            status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-        });
-    }
-    return jsonResponse({ access_token: exchanged.accessToken });
+    const tokenResult = await accessTokenFromSession(request);
+    if (tokenResult instanceof Response)
+        return tokenResult;
+    return jsonResponse({ access_token: tokenResult.accessToken });
 }
 export async function handleSessionLogout(request) {
     const sessionId = getSessionId(request);
@@ -117,30 +131,15 @@ export async function handleSessionMe(request) {
     return jsonResponse({
         email: session.email,
         user_id: session.userId,
-        roles: session.roles,
+        permissions: session.permissions,
+        account_type: session.accountType,
     });
 }
 /** Server-side register proxy using the signed-in admin's session. */
 export async function handleSessionRegister(request) {
-    const sessionId = getSessionId(request);
-    if (!sessionId) {
-        return jsonResponse({ error: "Not authenticated" }, { status: 401 });
-    }
-    const refreshToken = getRefreshToken(sessionId);
-    if (!refreshToken) {
-        return jsonResponse({ error: "Session expired" }, {
-            status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-        });
-    }
-    const exchanged = await exchangeRefreshToken(refreshToken);
-    if (!exchanged) {
-        deleteSession(sessionId);
-        return jsonResponse({ error: "Session expired" }, {
-            status: 401,
-            headers: { "Set-Cookie": clearSessionCookieHeader(request) },
-        });
-    }
+    const tokenResult = await accessTokenFromSession(request);
+    if (tokenResult instanceof Response)
+        return tokenResult;
     let body;
     try {
         body = (await request.json());
@@ -157,7 +156,7 @@ export async function handleSessionRegister(request) {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${exchanged.accessToken}`,
+            Authorization: `Bearer ${tokenResult.accessToken}`,
         },
         body: JSON.stringify({ email: body.email, password: body.password }),
     });
@@ -179,7 +178,7 @@ async function accessTokenFromSession(request) {
             headers: { "Set-Cookie": clearSessionCookieHeader(request) },
         });
     }
-    const exchanged = await exchangeRefreshToken(refreshToken);
+    const exchanged = await cachedAccessTokenExchange(sessionId, refreshToken);
     if (!exchanged) {
         deleteSession(sessionId);
         return jsonResponse({ error: "Session expired" }, {

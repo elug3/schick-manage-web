@@ -8,11 +8,17 @@ export function meta() {
 export default function Analytics() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"7d" | "30d">("30d");
 
   useEffect(() => {
+    setError(null);
     getAnalytics()
       .then(setData)
+      .catch((err) => {
+        setData(null);
+        setError(err instanceof Error ? err.message : "Failed to load analytics");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -20,6 +26,22 @@ export default function Analytics() {
     return (
       <div className="flex items-center justify-center py-32">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#6D4AFF] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-xl font-bold text-[#1C1B1F] sm:text-2xl">Analytics</h1>
+          <p className="mt-0.5 text-sm text-[#6B6480]">
+            Derived from order service data
+          </p>
+        </div>
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
       </div>
     );
   }

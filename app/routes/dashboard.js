@@ -10,19 +10,28 @@ export default function Dashboard() {
     const [stockAlerts, setStockAlerts] = useState([]);
     const [recentOrders, setRecentOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [errors, setErrors] = useState([]);
     useEffect(() => {
+        const failures = [];
+        const capture = (label, fallback) => (err) => {
+            failures.push(`${label}: ${err instanceof Error ? err.message : "request failed"}`);
+            return fallback;
+        };
         Promise.all([
-            getProducts().catch(() => []),
-            getCatalogStockAlerts().catch(() => []),
-            getOrders().catch(() => []).then((o) => o.slice(0, 5)),
+            getProducts().catch(capture("Products", [])),
+            getCatalogStockAlerts().catch(capture("Stock alerts", [])),
+            getOrders()
+                .catch(capture("Orders", []))
+                .then((o) => o.slice(0, 5)),
         ]).then(([prods, alerts, orders]) => {
             setProducts(prods);
             setStockAlerts(alerts);
             setRecentOrders(orders);
+            setErrors(failures);
             setLoading(false);
         });
     }, []);
-    return (_jsxs("div", { className: "space-y-8", children: [_jsx(PageHeader, {}), _jsx(StatsGrid, { products: products, loading: loading }), _jsxs("div", { className: "grid gap-6 lg:grid-cols-3", children: [_jsx("div", { className: "lg:col-span-2", children: _jsx(RecentOrdersTable, { orders: recentOrders }) }), _jsx(QuickPanel, { stockAlerts: stockAlerts })] })] }));
+    return (_jsxs("div", { className: "space-y-8", children: [_jsx(PageHeader, {}), errors.length > 0 && (_jsx("div", { className: "space-y-1 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600", children: errors.map((message) => (_jsx("p", { children: message }, message))) })), _jsx(StatsGrid, { products: products, loading: loading }), _jsxs("div", { className: "grid gap-6 lg:grid-cols-3", children: [_jsx("div", { className: "lg:col-span-2", children: _jsx(RecentOrdersTable, { orders: recentOrders }) }), _jsx(QuickPanel, { stockAlerts: stockAlerts })] })] }));
 }
 function PageHeader() {
     const now = new Date();
