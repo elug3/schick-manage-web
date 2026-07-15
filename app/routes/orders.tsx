@@ -8,6 +8,7 @@ import {
   formatOrderItemVariant,
   getOrders,
   listAllProducts,
+  shipOrder,
   updateOrderStatus,
 } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
@@ -20,14 +21,24 @@ export function meta() {
 const STATUS_TABS: { label: string; value: OrderStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
-  { label: "Confirmed", value: "confirmed" },
+  { label: "Paid", value: "paid" },
+  { label: "In transit", value: "in_transit" },
   { label: "Fulfilled", value: "fulfilled" },
   { label: "Canceled", value: "canceled" },
 ];
 
-const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["confirmed", "canceled"],
-  confirmed: ["fulfilled"],
+/** UI actions for the order lifecycle (ship uses POST /ship). */
+type OrderAction =
+  | { kind: "ship"; label: string }
+  | { kind: "status"; status: "canceled" | "fulfilled"; label: string };
+
+const ORDER_ACTIONS: Record<OrderStatus, OrderAction[]> = {
+  pending: [{ kind: "status", status: "canceled", label: "Cancel" }],
+  paid: [
+    { kind: "ship", label: "Ship" },
+    { kind: "status", status: "canceled", label: "Cancel" },
+  ],
+  in_transit: [{ kind: "status", status: "fulfilled", label: "Fulfill" }],
   fulfilled: [],
   canceled: [],
 };
@@ -73,10 +84,13 @@ export default function Orders() {
     {} as Record<OrderStatus, number>
   );
 
-  async function handleStatusChange(order: Order, newStatus: OrderStatus) {
+  async function handleOrderAction(order: Order, action: OrderAction) {
     setUpdatingId(order.id);
     try {
-      const updated = await updateOrderStatus(order.id, newStatus);
+      const updated =
+        action.kind === "ship"
+          ? await shipOrder(order.id)
+          : await updateOrderStatus(order.id, action.status);
       setOrders((os) =>
         os.map((o) => (o.id === order.id ? updated : o))
       );
@@ -175,7 +189,7 @@ export default function Orders() {
                   onToggle={() =>
                     setExpandedId(expandedId === order.id ? null : order.id)
                   }
-                  onStatusChange={(s) => handleStatusChange(order, s)}
+                  onAction={(action) => handleOrderAction(order, action)}
                 />
               ))}
             </div>
@@ -215,7 +229,7 @@ export default function Orders() {
                           expandedId === order.id ? null : order.id
                         )
                       }
-                      onStatusChange={(s) => handleStatusChange(order, s)}
+                      onAction={(action) => handleOrderAction(order, action)}
                     />
                   ))}
                 </tbody>
@@ -234,16 +248,16 @@ function OrderCard({
   expanded,
   updating,
   onToggle,
-  onStatusChange,
+  onAction,
 }: {
   order: Order;
   skuLookup: Map<string, SkuVariantContext>;
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
-  onStatusChange: (s: OrderStatus) => void;
+  onAction: (action: OrderAction) => void;
 }) {
-  const transitions = STATUS_TRANSITIONS[order.status];
+  const actions = ORDER_ACTIONS[order.status] ?? [];
 
   return (
     <div className="p-4">
@@ -278,22 +292,22 @@ function OrderCard({
         </div>
       </button>
 
-      {transitions.length > 0 && (
+      {actions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {transitions.map((next) => (
+          {actions.map((action) => (
             <button
-              key={next}
+              key={action.label}
               type="button"
               disabled={updating}
-              onClick={() => onStatusChange(next)}
+              onClick={() => onAction(action)}
               className={[
-                "rounded-lg px-3 py-2 text-xs font-semibold capitalize transition disabled:opacity-50",
-                next === "canceled"
+                "rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-50",
+                action.kind === "status" && action.status === "canceled"
                   ? "border border-red-200 text-red-600 hover:bg-red-50"
                   : "border border-[#E5E3EE] text-[#6B6480] hover:border-[#6D4AFF]/40 hover:bg-[#F8F7FC] hover:text-[#6D4AFF]",
               ].join(" ")}
             >
-              {updating ? "…" : `→ ${next}`}
+              {updating ? "…" : action.label}
             </button>
           ))}
         </div>
@@ -329,16 +343,16 @@ function OrderRows({
   expanded,
   updating,
   onToggle,
-  onStatusChange,
+  onAction,
 }: {
   order: Order;
   skuLookup: Map<string, SkuVariantContext>;
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
-  onStatusChange: (s: OrderStatus) => void;
+  onAction: (action: OrderAction) => void;
 }) {
-  const transitions = STATUS_TRANSITIONS[order.status];
+  const actions = ORDER_ACTIONS[order.status] ?? [];
 
   return (
     <>
@@ -374,21 +388,21 @@ function OrderRows({
           })}
         </td>
         <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-          {transitions.length > 0 && (
+          {actions.length > 0 && (
             <div className="flex items-center justify-end gap-1">
-              {transitions.map((next) => (
+              {actions.map((action) => (
                 <button
-                  key={next}
+                  key={action.label}
                   disabled={updating}
-                  onClick={() => onStatusChange(next)}
+                  onClick={() => onAction(action)}
                   className={[
-                    "rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition disabled:opacity-50",
-                    next === "canceled"
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50",
+                    action.kind === "status" && action.status === "canceled"
                       ? "border border-red-200 text-red-600 hover:bg-red-50"
                       : "border border-[#E5E3EE] text-[#6B6480] hover:border-[#6D4AFF]/40 hover:bg-[#F8F7FC] hover:text-[#6D4AFF]",
                   ].join(" ")}
                 >
-                  {updating ? "…" : `→ ${next}`}
+                  {updating ? "…" : action.label}
                 </button>
               ))}
             </div>

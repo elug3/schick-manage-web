@@ -23,6 +23,10 @@ export interface Product {
   stock?: number;
   description?: string;
   brand?: string;
+  /** Immutable master brand code (e.g. BOT). */
+  brandCode?: string;
+  /** Immutable master style code under brand (e.g. CAS001). */
+  styleCode?: string;
   color?: string;
   material?: string;
   sku?: string;
@@ -38,15 +42,31 @@ export interface Product {
 }
 
 export interface ProductVariant {
+  /** Canonical ULID used by inventory / cart / order. */
+  skuId?: string;
+  /** Human-composed SKU (immutable after create). */
   sku: string;
   productId?: string;
   color: string;
   size: string;
+  colorCode?: string;
+  sizeCode?: string;
+  editionCode?: string;
   price: number;
   status: string;
   imageUrls: string[];
   inStock?: boolean;
   raw: ProductSearchHit;
+}
+
+/** Master-data dictionary entry (`/api/v1/catalog/...`). */
+export interface CatalogCodeName {
+  code: string;
+  name: string;
+}
+
+export interface CatalogStyle extends CatalogCodeName {
+  brandCode: string;
 }
 
 export interface VariantStockAlert {
@@ -90,10 +110,15 @@ function mapVariant(hit: ProductSearchHit): ProductVariant {
   const sku =
     hitString(hit, "sku") ?? hitString(hit, "id") ?? "unknown-sku";
   return {
+    skuId: hitString(hit, "skuId") ?? hitString(hit, "sku_id"),
     sku,
     productId: hitString(hit, "product_id") ?? hitString(hit, "productId"),
     color: hitString(hit, "color") ?? "",
     size: hitString(hit, "size") ?? "",
+    colorCode: hitString(hit, "colorCode") ?? hitString(hit, "color_code"),
+    sizeCode: hitString(hit, "sizeCode") ?? hitString(hit, "size_code"),
+    editionCode:
+      hitString(hit, "editionCode") ?? hitString(hit, "edition_code"),
     price: hitNumber(hit, "price") ?? 0,
     status: hitString(hit, "status") ?? "active",
     imageUrls: hitStringArray(hit, "imageUrls") ?? [],
@@ -237,6 +262,8 @@ export function mapProduct(
     stock: hitNumber(hit, "stock") ?? hitNumber(hit, "quantity"),
     description: hitString(hit, "description"),
     brand: hitString(hit, "brand"),
+    brandCode: hitString(hit, "brandCode") ?? hitString(hit, "brand_code"),
+    styleCode: hitString(hit, "styleCode") ?? hitString(hit, "style_code"),
     color: hitString(hit, "color"),
     material: hitString(hit, "material"),
     sku: hitString(hit, "sku") ?? hitString(hit, "id"),
@@ -347,11 +374,16 @@ export interface CreateBagProductInput {
 
 export interface CreateProductParentInput {
   name: string;
-  id: string;
-  brand: string;
+  /** Existing master brand code (required). */
+  brandCode: string;
+  /** Existing master style code under brand (required). */
+  styleCode: string;
   material: string;
+  /** Optional display brand name; backend enriches from master when blank. */
+  brand?: string;
   category?: string;
   description?: string;
+  status?: string;
 }
 
 export async function createProductParent(
@@ -362,11 +394,13 @@ export async function createProductParent(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: input.name,
-      id: input.id,
+      brandCode: input.brandCode,
+      styleCode: input.styleCode,
       brand: input.brand,
       material: input.material,
       category: input.category ?? "bags",
       description: input.description,
+      status: input.status ?? "active",
     }),
   });
   if (!res.ok) throw new Error(await readError(res, "Failed to create product"));
@@ -375,10 +409,13 @@ export async function createProductParent(
 }
 
 export interface CreateVariantInput {
-  color: string;
+  colorCode: string;
+  sizeCode: string;
+  editionCode?: string;
   price: number;
+  /** Optional display names; backend enriches from masters when blank. */
+  color?: string;
   size?: string;
-  sku?: string;
   status?: string;
 }
 
@@ -394,10 +431,12 @@ export async function createVariant(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        colorCode: input.colorCode,
+        sizeCode: input.sizeCode,
+        editionCode: input.editionCode || undefined,
         color: input.color,
+        size: input.size,
         price: input.price,
-        size: input.size ?? "",
-        sku: input.sku,
         status: input.status ?? "active",
       }),
     }
@@ -506,6 +545,243 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error(await readError(res, "Failed to delete product"));
 }
 
+// ── Catalog master data (SKU dictionaries) ─────────────────────────────────────
+
+async function parseCatalogList<T>(res: Response, fallback: string): Promise<T[]> {
+  if (!res.ok) throw new Error(await readError(res, fallback));
+  const data = (await res.json()) as T[] | { results?: T[] };
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data.results) ? data.results : [];
+}
+
+export async function listBrands(): Promise<CatalogCodeName[]> {
+  const res = await authedFetch(productPath("/api/v1/catalog/brands"));
+  return parseCatalogList<CatalogCodeName>(res, "Failed to list brands");
+}
+
+export async function createBrand(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(productPath("/api/v1/catalog/brands"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, name }),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to create brand"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function renameBrand(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/brands/${encodeURIComponent(code)}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to rename brand"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function deleteBrand(code: string): Promise<void> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/brands/${encodeURIComponent(code)}`),
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete brand"));
+}
+
+export async function listStyles(brandCode: string): Promise<CatalogStyle[]> {
+  const res = await authedFetch(
+    productPath(
+      `/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles`
+    )
+  );
+  return parseCatalogList<CatalogStyle>(res, "Failed to list styles");
+}
+
+export async function createStyle(
+  brandCode: string,
+  code: string,
+  name: string
+): Promise<CatalogStyle> {
+  const res = await authedFetch(
+    productPath(
+      `/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles`
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to create style"));
+  return res.json() as Promise<CatalogStyle>;
+}
+
+export async function renameStyle(
+  brandCode: string,
+  styleCode: string,
+  name: string
+): Promise<CatalogStyle> {
+  const res = await authedFetch(
+    productPath(
+      `/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles/${encodeURIComponent(styleCode)}`
+    ),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to rename style"));
+  return res.json() as Promise<CatalogStyle>;
+}
+
+export async function deleteStyle(
+  brandCode: string,
+  styleCode: string
+): Promise<void> {
+  const res = await authedFetch(
+    productPath(
+      `/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles/${encodeURIComponent(styleCode)}`
+    ),
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete style"));
+}
+
+export async function listColors(): Promise<CatalogCodeName[]> {
+  const res = await authedFetch(productPath("/api/v1/catalog/colors"));
+  return parseCatalogList<CatalogCodeName>(res, "Failed to list colors");
+}
+
+export async function createColor(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(productPath("/api/v1/catalog/colors"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, name }),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to create color"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function renameColor(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/colors/${encodeURIComponent(code)}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to rename color"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function deleteColor(code: string): Promise<void> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/colors/${encodeURIComponent(code)}`),
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete color"));
+}
+
+export async function listSizes(): Promise<CatalogCodeName[]> {
+  const res = await authedFetch(productPath("/api/v1/catalog/sizes"));
+  return parseCatalogList<CatalogCodeName>(res, "Failed to list sizes");
+}
+
+export async function createSize(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(productPath("/api/v1/catalog/sizes"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, name }),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to create size"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function renameSize(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/sizes/${encodeURIComponent(code)}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to rename size"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function deleteSize(code: string): Promise<void> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/sizes/${encodeURIComponent(code)}`),
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete size"));
+}
+
+export async function listEditions(): Promise<CatalogCodeName[]> {
+  const res = await authedFetch(productPath("/api/v1/catalog/editions"));
+  return parseCatalogList<CatalogCodeName>(res, "Failed to list editions");
+}
+
+export async function createEdition(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(productPath("/api/v1/catalog/editions"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, name }),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to create edition"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function renameEdition(
+  code: string,
+  name: string
+): Promise<CatalogCodeName> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/editions/${encodeURIComponent(code)}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to rename edition"));
+  return res.json() as Promise<CatalogCodeName>;
+}
+
+export async function deleteEdition(code: string): Promise<void> {
+  const res = await authedFetch(
+    productPath(`/api/v1/catalog/editions/${encodeURIComponent(code)}`),
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(await readError(res, "Failed to delete edition"));
+}
+
 // ── Coupons ──────────────────────────────────────────────────────────────────
 
 export interface Coupon {
@@ -574,7 +850,12 @@ export async function deleteCoupon(code: string): Promise<void> {
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 
-export type OrderStatus = "pending" | "confirmed" | "canceled" | "fulfilled";
+export type OrderStatus =
+  | "pending"
+  | "paid"
+  | "in_transit"
+  | "fulfilled"
+  | "canceled";
 
 export interface OrderItem {
   sku: string;
@@ -637,9 +918,19 @@ export async function getOrder(id: string): Promise<Order> {
   return res.json() as Promise<Order>;
 }
 
+/** Ship a paid order (`paid` → `in_transit`). Requires `order.ship`. */
+export async function shipOrder(id: string): Promise<Order> {
+  const res = await authedFetch(orderPath(`/api/v1/orders/${id}/ship`), {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await readError(res, "Failed to ship order"));
+  return res.json() as Promise<Order>;
+}
+
+/** Cancel or fulfill via status API. Use `shipOrder` for `in_transit`. */
 export async function updateOrderStatus(
   id: string,
-  status: OrderStatus
+  status: Extract<OrderStatus, "canceled" | "fulfilled">
 ): Promise<Order> {
   const res = await authedFetch(orderPath(`/api/v1/orders/${id}/status`), {
     method: "PUT",
@@ -761,6 +1052,8 @@ export const PERMISSION_CATALOG = [
   "product.variant.update",
   "product.variant.delete",
   "product.image.upload",
+  "product.master.read",
+  "product.master.write",
   "coupon.read",
   "coupon.create",
   "coupon.update",

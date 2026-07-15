@@ -16,6 +16,7 @@ export default [
         route("products", "routes/products.tsx"),
         route("products/new", "routes/products.new.tsx"),
         route("products/:id", "routes/products.$id.tsx"),
+        route("catalog", "routes/catalog.tsx"),
         route("orders", "routes/orders.tsx"),
         route("coupons", "routes/coupons.tsx"),
         route("analytics", "routes/analytics.tsx"),

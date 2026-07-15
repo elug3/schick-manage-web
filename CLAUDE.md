@@ -28,22 +28,20 @@ npm run typecheck    # react-router typegen + tsc
 
 ## Backend (API Gateway)
 
-All services run on port `8080` internally. The nginx gateway strips its location prefix before proxying:
+Upstream nginx (dupli1) serves versioned paths under `/api/v1/...` with **no** service prefix stripping. Manage-web still uses browser-side prefixes (`/auth`, `/product`, `/inventory`, `/order`) so page routes like `/products` are not swallowed; the Vite proxy and SSR gateway routes strip those prefixes before forwarding to `DUPLI1_GATEWAY_URL` (default `http://localhost:8080`).
 
-| Gateway prefix | Service |
-|---|---|
-| `/auth/` | dupli1-auth |
-| `/product/` | dupli1-product |
-| `/inventory/` | dupli1-inventory |
-| `/order/` | dupli1-order |
+| Browser prefix | Upstream path example | Service |
+|---|---|---|
+| `/auth/` | `/api/v1/auth/...` | dupli1-auth |
+| `/product/` | `/api/v1/products`, `/api/v1/catalog`, `/api/v1/coupons`, … | dupli1-product |
+| `/inventory/` | `/api/v1/inventory/...` | dupli1-product (inventory merged) |
+| `/order/` | `/api/v1/orders`, `/api/v1/checkout`, … | dupli1-order |
 
-Client paths use the gateway prefix, e.g. `GET /product/api/v1/products`. The Vite dev proxy rewrites prefixes the same way nginx does.
-
-Set `DUPLI1_GATEWAY_URL` (default `http://localhost:8080`) for SSR server-side backend calls.
+Client example: `GET /product/api/v1/products` → gateway `GET /api/v1/products`.
 
 ### Auth (`/auth`)
 
-- `POST /auth/api/v1/auth/register` — create account (Bearer service token or admin role)
+- `POST /auth/api/v1/auth/register` — create account (Bearer; `user.create`)
 - `POST /auth/api/v1/auth/login` — returns `{ refresh_token }`
 - `POST /auth/api/v1/auth/refresh` — `{ refresh_token }` → `{ token }` (access token)
 - `POST /auth/api/v1/auth/logout` — `204`
@@ -52,24 +50,32 @@ Set `DUPLI1_GATEWAY_URL` (default `http://localhost:8080`) for SSR server-side b
 
 ### Product (`/product`)
 
-- `GET /product/api/v1/products/bags` — public bag search (`brand`, `color`, `material` query params)
-- `GET /product/api/v1/products` — list all products (auth)
-- `POST /product/api/v1/products` — create product (auth)
-- `GET /product/api/v1/products/{id}/manage` — product detail for admin (auth)
-- `PUT /product/api/v1/products/{id}` — update product (auth)
-- `DELETE /product/api/v1/products/{id}` — delete product (auth)
-- `POST /product/api/v1/products/{id}/images` — upload image to default variant (auth, multipart field `image`)
-- `POST /product/api/v1/products/{id}/variants/{sku}/images` — upload image for a variant (auth, multipart field `image`)
-- `GET|POST /product/api/v1/coupons`, `PUT|DELETE /product/api/v1/coupons/{code}` — coupon CRUD (auth)
+- `GET /product/api/v1/products` — list parents (`product.read` widens drafts/cost)
+- `POST /product/api/v1/products` — create parent (ULID `id`; requires existing `brandCode` + `styleCode`)
+- `GET /product/api/v1/products/{id}` — parent PDP with `variants[]`
+- `PUT /product/api/v1/products/{id}` — update parent
+- `DELETE /product/api/v1/products/{id}` — delete parent
+- `POST /product/api/v1/products/{id}/variants` — create variant (requires existing `colorCode` + `sizeCode`)
+- `PUT|DELETE /product/api/v1/products/{id}/variants/{sku}`
+- `POST /product/api/v1/products/{id}/images` — upload to default variant
+- `POST /product/api/v1/products/{id}/variants/{sku}/images`
+- `GET|POST|PATCH|DELETE /product/api/v1/catalog/brands|colors|sizes|editions` (+ styles under brands) — master data (`product.master.read|write`)
+- `GET|POST /product/api/v1/coupons`, `PUT|DELETE /product/api/v1/coupons/{code}`
+
+SKU identity: each variant has immutable `skuId` (ULID) and human `sku` composed from master codes. See backend `docs/product-sku-system.md`.
 
 ### Order (`/order`)
 
-- `GET /order/api/v1/orders?customer_id=` — list orders for a customer (auth; admin aggregates across users)
-- `GET /order/api/v1/orders/{id}`, `PUT /order/api/v1/orders/{id}/status`
+- `GET /order/api/v1/orders?customer_id=` — list orders (admin aggregates across users)
+- `GET /order/api/v1/orders/{id}`
+- `POST /order/api/v1/orders/{id}/ship` — `paid` → `in_transit` (`order.ship`)
+- `PUT /order/api/v1/orders/{id}/status` — `canceled` or `fulfilled` only (`order.status.update`)
+
+Statuses: `pending` → `paid` → `in_transit` → `fulfilled` (or `canceled` from pending/paid).
 
 ### Inventory (`/inventory`)
 
-`/inventory/api/v1/inventory/{sku}`, adjust, reservations.
+`/inventory/api/v1/inventory/{sku}` and `/by-sku-id/{skuId}`, adjust, reservations (served by product).
 
 ## Auth (browser)
 
@@ -80,7 +86,7 @@ Server-side session storage keeps both refresh and access tokens off the browser
 - `dupli1_sid` httpOnly cookie carries the session id; the browser never sees either token.
 - `POST /auth/session/login`, `/auth/session/logout`, `GET /auth/session/me` proxy auth to the gateway and manage the session cookie. `/auth/session/refresh` still exists for callers that want an access token directly.
 - `authedFetch` (in `app/lib/auth.ts`) sends all `/auth`, `/product`, `/inventory`, `/order` API calls to `/auth/session/gateway/*` with `credentials: "include"` and no `Authorization` header. The `auth.session.gateway.tsx` route (`handleSessionGatewayProxy`) resolves the session cookie server-side, exchanges/reuses a cached access token, attaches `Authorization: Bearer <token>`, and forwards the request to the real gateway.
-- Users carry `permissions: string[]` and `account_type: "customer" | "admin" | "service"` (see `PERMISSION_CATALOG` / `AccountType` in `app/lib/api.ts`) — the legacy `roles` claim was removed from the backend.
+- Users carry `permissions: string[]` and `account_type: "customer" | "admin" | "service"` (see `PERMISSION_CATALOG` / `AccountType` in `app/lib/api.ts`) — includes `product.master.read|write`. The legacy `roles` claim was removed from the backend.
 
 ## Architecture
 
@@ -96,17 +102,14 @@ app/
 
 Route modules use React Router 7 conventions: `loader` for data fetching, `action` for mutations, `default` export for the component.
 
+Admin surfaces: products (parent + variants), **catalog masters** (`/catalog`), orders, coupons, users, settings (local UI; manager settings API still sketch on backend).
+
 ## Production access
 
-The admin dashboard is **not** exposed on the public internet. In production:
+Admin is published at **https://manage.dupli1.com** (ALB). The internal VPN host was retired for day-to-day admin access.
 
-- `dupli1-manage-web` runs in **private subnets** with no public IP and no ALB attachment.
-- Managers connect via the **WireGuard VPN** (`dupli1-internal-vpn`), then open:
-
-  **http://manage.dupli1.local**
-
-- API calls from manage-web reach backends via `DUPLI1_GATEWAY_URL=http://proxy.dupli1.local` (internal nginx gateway).
-- The customer storefront (`dupli1-web`) remains public via `dupli1-prod-alb`.
+- API calls use `DUPLI1_GATEWAY_URL` (internal nginx / proxy hostname in ECS).
+- The customer storefront (`dupli1-web`) remains public via the same ALB (`dupli1.com`).
 
 ## Sibling Projects
 

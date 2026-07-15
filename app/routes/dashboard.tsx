@@ -360,11 +360,15 @@ function QuickPanel({ stockAlerts }: { stockAlerts: VariantStockAlert[] }) {
 export function OrderStatusBadge({ status }: { status: Order["status"] }) {
   const map: Record<Order["status"], { label: string; class: string }> = {
     pending: { label: "Pending", class: "bg-amber-100 text-amber-800" },
-    confirmed: { label: "Confirmed", class: "bg-blue-100 text-blue-800" },
+    paid: { label: "Paid", class: "bg-blue-100 text-blue-800" },
+    in_transit: { label: "In transit", class: "bg-violet-100 text-violet-800" },
     fulfilled: { label: "Fulfilled", class: "bg-emerald-100 text-emerald-800" },
     canceled: { label: "Canceled", class: "bg-slate-100 text-slate-600" },
   };
-  const { label, class: cls } = map[status];
+  const { label, class: cls } = map[status] ?? {
+    label: status,
+    class: "bg-slate-100 text-slate-600",
+  };
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
       {label}
