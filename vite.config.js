@@ -1,12 +1,25 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+const root = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+const appVersion = process.env.APP_VERSION || pkg.version;
+const appBuildNumber = process.env.APP_BUILD_NUMBER || "dev";
+const appGitSha = process.env.APP_GIT_SHA || "local";
 /** Strip gateway prefix so upstream receives paths as documented. */
 function stripGatewayPrefix(prefix) {
     return (path) => path.replace(new RegExp(`^${prefix}`), "") || "/";
 }
 export default defineConfig({
     plugins: [tailwindcss(), reactRouter()],
+    define: {
+        __APP_VERSION__: JSON.stringify(appVersion),
+        __APP_BUILD_NUMBER__: JSON.stringify(appBuildNumber),
+        __APP_GIT_SHA__: JSON.stringify(appGitSha),
+    },
     resolve: {
         tsconfigPaths: true,
     },

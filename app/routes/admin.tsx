@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { type User, getMe, logout } from "~/lib/auth";
 import { useI18n } from "~/lib/i18n";
 import { LanguageSwitcher } from "~/lib/i18n/LanguageSwitcher";
+import { APP_BUILD_NUMBER, APP_VERSION } from "~/lib/version";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -165,6 +166,18 @@ export default function AdminLayout() {
               <LogoutIcon />
             </button>
           </div>
+          <p
+            className="mt-1 truncate px-2 text-[10px] tabular-nums tracking-wide text-[#5C5478]"
+            title={t("nav.versionLabel", {
+              version: APP_VERSION,
+              build: APP_BUILD_NUMBER,
+            })}
+          >
+            {t("nav.versionLabel", {
+              version: APP_VERSION,
+              build: APP_BUILD_NUMBER,
+            })}
+          </p>
         </div>
       </aside>
 

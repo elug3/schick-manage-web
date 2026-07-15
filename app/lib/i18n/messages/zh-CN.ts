@@ -24,6 +24,7 @@ export const zhCN: Messages = {
     backendOnline: "后端在线",
     loading: "加载中…",
     language: "语言",
+    versionLabel: "v{version} · 构建 {build}",
   },
 
   common: {
@@ -518,6 +519,11 @@ export const zhCN: Messages = {
       "永久删除目录中的所有商品。此操作无法撤销。",
     clearData: "清除数据",
     notImplementedDemo: "演示中未实现。",
+    sectionAbout: "关于",
+    sectionAboutDesc: "已部署应用的版本与构建信息。",
+    appVersion: "版本",
+    buildNumber: "构建号",
+    gitCommit: "提交",
   },
 
   errors: {
