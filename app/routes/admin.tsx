@@ -128,6 +128,7 @@ export default function AdminLayout() {
           <div className="space-y-0.5">
             <SidebarLink to="/" icon={<DashboardIcon />} label="Dashboard" exact onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/products" icon={<ProductsIcon />} label="Products" onNavigate={() => setSidebarOpen(false)} />
+            <SidebarLink to="/catalog" icon={<CatalogIcon />} label="Catalog" onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/orders" icon={<OrdersIcon />} label="Orders" onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/coupons" icon={<CouponsIcon />} label="Coupons" onNavigate={() => setSidebarOpen(false)} />
             <SidebarLink to="/analytics" icon={<AnalyticsIcon />} label="Analytics" onNavigate={() => setSidebarOpen(false)} />
@@ -262,6 +263,20 @@ function ProductsIcon() {
         strokeLinejoin="round"
       />
       <path d="M12 2v19.5M3 6.5l9 4.5 9-4.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CatalogIcon() {
+  return (
+    <svg className="size-[18px]" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M4 6a2 2 0 012-2h12a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V6z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M8 7h8M8 11h8M8 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

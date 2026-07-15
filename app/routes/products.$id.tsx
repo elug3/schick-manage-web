@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
+  type CatalogCodeName,
   type Product,
   type ProductVariant,
   createVariant,
@@ -8,6 +9,9 @@ import {
   formatVariantOption,
   getInventory,
   getManageProduct,
+  listColors,
+  listEditions,
+  listSizes,
   productVariants,
   setInventory,
   updateProduct,
@@ -276,8 +280,8 @@ function ParentSummarySection({
                 className={fieldCls}
               >
                 <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
                 <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
               </select>
             </label>
             <label className="space-y-1.5 sm:col-span-2">
@@ -314,6 +318,8 @@ function ParentSummarySection({
           {[
             ["ID", product.id],
             ["Brand", product.brand],
+            ["Brand code", product.brandCode],
+            ["Style code", product.styleCode],
             ["Material", product.material],
             ["Status", product.status],
             ["Colors", colors],
@@ -374,17 +380,18 @@ function VariantsSection({
           Variants
         </h2>
         <p className="mt-1 text-sm text-[#6B6480]">
-          Sellable SKUs with inventory keyed by{" "}
-          <code className="text-xs">/inventory/api/v1/inventory/{"{sku}"}</code>
+          Human <code className="text-xs">sku</code> plus canonical{" "}
+          <code className="text-xs">skuId</code> (inventory accepts either).
         </p>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[#E5E3EE]">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-[#F0EEF8] bg-[#FAFAFA] text-left">
               {[
                 "SKU",
+                "skuId",
                 "Option",
                 "Price",
                 "Status",
@@ -410,8 +417,18 @@ function VariantsSection({
                   <td className="px-4 py-3 font-mono text-xs text-[#1C1B1F]">
                     {row.sku}
                   </td>
+                  <td className="px-4 py-3 font-mono text-[10px] text-[#9D98B3]">
+                    {row.skuId ?? "—"}
+                  </td>
                   <td className="px-4 py-3 text-[#6B6480]">
                     {formatVariantOption(row)}
+                    {(row.colorCode || row.sizeCode || row.editionCode) && (
+                      <div className="mt-0.5 font-mono text-[10px] text-[#9D98B3]">
+                        {[row.colorCode, row.editionCode, row.sizeCode]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[#1C1B1F]">
                     {formatCurrency(row.price)}
@@ -507,7 +524,7 @@ function VariantsSection({
                 </tr>
                 {editingSku === row.sku && (
                   <tr className="bg-[#FAFAFA]">
-                    <td colSpan={8} className="px-4 py-4">
+                    <td colSpan={9} className="px-4 py-4">
                       <VariantEditForm
                         productId={product.id}
                         variant={row}
@@ -637,8 +654,8 @@ function VariantEditForm({
             className={`block ${inputCls}`}
           >
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
             <option value="draft">Draft</option>
+            <option value="archived">Archived</option>
           </select>
         </label>
       </div>
@@ -672,13 +689,45 @@ function AddVariantForm({
   onCancel: () => void;
 }) {
   const { notify } = useNotify();
-  const [color, setColor] = useState("");
-  const [size, setSize] = useState("");
-  const [sku, setSku] = useState("");
+  const [colors, setColors] = useState<CatalogCodeName[]>([]);
+  const [sizes, setSizes] = useState<CatalogCodeName[]>([]);
+  const [editions, setEditions] = useState<CatalogCodeName[]>([]);
+  const [colorCode, setColorCode] = useState("");
+  const [sizeCode, setSizeCode] = useState("OS");
+  const [editionCode, setEditionCode] = useState("");
   const [price, setPrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
   const [status, setStatus] = useState("active");
   const [saving, setSaving] = useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listColors(), listSizes(), listEditions()])
+      .then(([c, s, e]) => {
+        if (cancelled) return;
+        setColors(c);
+        setSizes(s);
+        setEditions(e);
+        if (c[0]) setColorCode(c[0].code);
+        if (s.some((row) => row.code === "OS")) setSizeCode("OS");
+        else if (s[0]) setSizeCode(s[0].code);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          notify(
+            err instanceof Error ? err.message : "Failed to load catalog masters",
+            "error"
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMasters(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notify]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -687,14 +736,22 @@ function AddVariantForm({
       notify("Enter a valid price", "error");
       return;
     }
+    if (!colorCode || !sizeCode) {
+      notify("Select color and size codes", "error");
+      return;
+    }
 
     setSaving(true);
     try {
+      const colorName = colors.find((c) => c.code === colorCode)?.name;
+      const sizeName = sizes.find((s) => s.code === sizeCode)?.name;
       const variant = await createVariant(productId, {
-        color: color.trim(),
-        size: size.trim(),
+        colorCode,
+        sizeCode,
+        editionCode: editionCode || undefined,
+        color: colorName,
+        size: sizeName,
         price: parsedPrice,
-        sku: sku.trim() || undefined,
         status,
       });
 
@@ -711,6 +768,14 @@ function AddVariantForm({
     }
   }
 
+  if (loadingMasters) {
+    return (
+      <div className="rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 text-sm text-[#6B6480]">
+        Loading catalog masters…
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -719,33 +784,55 @@ function AddVariantForm({
       <p className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
         New variant
       </p>
+      <p className="text-xs text-[#6B6480]">
+        Human SKU is composed from parent brand/style + these codes. Manage
+        dictionaries under Catalog.
+      </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="space-y-1 text-xs text-[#6B6480]">
-          Color *
-          <input
+          Color code *
+          <select
             required
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
+            value={colorCode}
+            onChange={(e) => setColorCode(e.target.value)}
             className={`block w-full ${inputCls}`}
-            placeholder="Navy"
-          />
+          >
+            {colors.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">
-          Size
-          <input
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
+          Size code *
+          <select
+            required
+            value={sizeCode}
+            onChange={(e) => setSizeCode(e.target.value)}
             className={`block w-full ${inputCls}`}
-          />
+          >
+            {sizes.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.code} — {s.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">
-          SKU
-          <input
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
+          Edition code
+          <select
+            value={editionCode}
+            onChange={(e) => setEditionCode(e.target.value)}
             className={`block w-full ${inputCls}`}
-            placeholder="Auto-generated if empty"
-          />
+          >
+            <option value="">None</option>
+            {editions.map((ed) => (
+              <option key={ed.code} value={ed.code}>
+                {ed.code} — {ed.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">
           Price (USD) *
@@ -767,8 +854,8 @@ function AddVariantForm({
             className={`block w-full ${inputCls}`}
           >
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
             <option value="draft">Draft</option>
+            <option value="archived">Archived</option>
           </select>
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">

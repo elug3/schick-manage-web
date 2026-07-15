@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { createVariant, deleteVariant, formatVariantOption, getInventory, getManageProduct, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
+import { createVariant, deleteVariant, formatVariantOption, getInventory, getManageProduct, listColors, listEditions, listSizes, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const LOW_STOCK_THRESHOLD = 5;
@@ -117,9 +117,11 @@ function ParentSummarySection({ product, onUpdated, }) {
         : product.price != null
             ? formatCurrency(product.price)
             : "—";
-    return (_jsxs("div", { children: [_jsxs("div", { className: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-2xl font-bold text-[#1C1B1F]", children: product.name }), _jsx("p", { className: "mt-1 text-sm capitalize text-[#6B6480]", children: product.category })] }), !editing && (_jsx("button", { type: "button", onClick: () => setEditing(true), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6D4AFF] transition hover:border-[#6D4AFF]/40 hover:bg-[#FAFAFA]", children: "Edit style" }))] }), editing ? (_jsxs("form", { onSubmit: handleSubmit, className: "mt-6 space-y-4", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Edit parent product" }), _jsxs("div", { className: "grid gap-4 sm:grid-cols-2", children: [_jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Name" }), _jsx("input", { required: true, value: name, onChange: (e) => setName(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Brand" }), _jsx("input", { required: true, value: brand, onChange: (e) => setBrand(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Material" }), _jsx("input", { required: true, value: material, onChange: (e) => setMaterial(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Status" }), _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: fieldCls, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "inactive", children: "Inactive" }), _jsx("option", { value: "draft", children: "Draft" })] })] }), _jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Description" }), _jsx("textarea", { value: description, onChange: (e) => setDescription(e.target.value), rows: 3, className: fieldCls })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: () => setEditing(false), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6B6480]", children: "Cancel" })] })] })) : (_jsxs("dl", { className: "mt-6 grid gap-4 sm:grid-cols-2", children: [[
+    return (_jsxs("div", { children: [_jsxs("div", { className: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-2xl font-bold text-[#1C1B1F]", children: product.name }), _jsx("p", { className: "mt-1 text-sm capitalize text-[#6B6480]", children: product.category })] }), !editing && (_jsx("button", { type: "button", onClick: () => setEditing(true), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6D4AFF] transition hover:border-[#6D4AFF]/40 hover:bg-[#FAFAFA]", children: "Edit style" }))] }), editing ? (_jsxs("form", { onSubmit: handleSubmit, className: "mt-6 space-y-4", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Edit parent product" }), _jsxs("div", { className: "grid gap-4 sm:grid-cols-2", children: [_jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Name" }), _jsx("input", { required: true, value: name, onChange: (e) => setName(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Brand" }), _jsx("input", { required: true, value: brand, onChange: (e) => setBrand(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Material" }), _jsx("input", { required: true, value: material, onChange: (e) => setMaterial(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Status" }), _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: fieldCls, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] }), _jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Description" }), _jsx("textarea", { value: description, onChange: (e) => setDescription(e.target.value), rows: 3, className: fieldCls })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: () => setEditing(false), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6B6480]", children: "Cancel" })] })] })) : (_jsxs("dl", { className: "mt-6 grid gap-4 sm:grid-cols-2", children: [[
                         ["ID", product.id],
                         ["Brand", product.brand],
+                        ["Brand code", product.brandCode],
+                        ["Style code", product.styleCode],
                         ["Material", product.material],
                         ["Status", product.status],
                         ["Colors", colors],
@@ -140,8 +142,9 @@ function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onRe
             notify(err instanceof Error ? err.message : "Failed to update stock", "error");
         }
     }
-    return (_jsxs("div", { className: "mt-8 border-t border-[#F0EEF8] pt-6", children: [_jsxs("div", { className: "mb-4", children: [_jsx("h2", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Variants" }), _jsxs("p", { className: "mt-1 text-sm text-[#6B6480]", children: ["Sellable SKUs with inventory keyed by", " ", _jsxs("code", { className: "text-xs", children: ["/inventory/api/v1/inventory/", "{sku}"] })] })] }), _jsx("div", { className: "overflow-x-auto rounded-xl border border-[#E5E3EE]", children: _jsxs("table", { className: "w-full min-w-[640px] text-sm", children: [_jsx("thead", { children: _jsx("tr", { className: "border-b border-[#F0EEF8] bg-[#FAFAFA] text-left", children: [
+    return (_jsxs("div", { className: "mt-8 border-t border-[#F0EEF8] pt-6", children: [_jsxs("div", { className: "mb-4", children: [_jsx("h2", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Variants" }), _jsxs("p", { className: "mt-1 text-sm text-[#6B6480]", children: ["Human ", _jsx("code", { className: "text-xs", children: "sku" }), " plus canonical", " ", _jsx("code", { className: "text-xs", children: "skuId" }), " (inventory accepts either)."] })] }), _jsx("div", { className: "overflow-x-auto rounded-xl border border-[#E5E3EE]", children: _jsxs("table", { className: "w-full min-w-[720px] text-sm", children: [_jsx("thead", { children: _jsx("tr", { className: "border-b border-[#F0EEF8] bg-[#FAFAFA] text-left", children: [
                                     "SKU",
+                                    "skuId",
                                     "Option",
                                     "Price",
                                     "Status",
@@ -149,7 +152,9 @@ function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onRe
                                     "Images",
                                     "",
                                     "Actions",
-                                ].map((heading) => (_jsx("th", { className: "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: heading }, heading))) }) }), _jsx("tbody", { children: rows.map((row) => (_jsxs(Fragment, { children: [_jsxs("tr", { className: "border-b border-[#F0EEF8] last:border-0 align-top", children: [_jsx("td", { className: "px-4 py-3 font-mono text-xs text-[#1C1B1F]", children: row.sku }), _jsx("td", { className: "px-4 py-3 text-[#6B6480]", children: formatVariantOption(row) }), _jsx("td", { className: "px-4 py-3 text-[#1C1B1F]", children: formatCurrency(row.price) }), _jsx("td", { className: "px-4 py-3 capitalize text-[#6B6480]", children: row.status }), _jsx("td", { className: "px-4 py-3", children: _jsx(StockEditor, { sku: row.sku, quantity: row.quantity, reserved: row.reserved, onSave: handleSetStock }) }), _jsx("td", { className: "px-4 py-3", children: _jsx(VariantImageUpload, { productId: product.id, variant: row, onUploaded: (updated) => {
+                                ].map((heading) => (_jsx("th", { className: "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: heading }, heading))) }) }), _jsx("tbody", { children: rows.map((row) => (_jsxs(Fragment, { children: [_jsxs("tr", { className: "border-b border-[#F0EEF8] last:border-0 align-top", children: [_jsx("td", { className: "px-4 py-3 font-mono text-xs text-[#1C1B1F]", children: row.sku }), _jsx("td", { className: "px-4 py-3 font-mono text-[10px] text-[#9D98B3]", children: row.skuId ?? "—" }), _jsxs("td", { className: "px-4 py-3 text-[#6B6480]", children: [formatVariantOption(row), (row.colorCode || row.sizeCode || row.editionCode) && (_jsx("div", { className: "mt-0.5 font-mono text-[10px] text-[#9D98B3]", children: [row.colorCode, row.editionCode, row.sizeCode]
+                                                            .filter(Boolean)
+                                                            .join(" · ") }))] }), _jsx("td", { className: "px-4 py-3 text-[#1C1B1F]", children: formatCurrency(row.price) }), _jsx("td", { className: "px-4 py-3 capitalize text-[#6B6480]", children: row.status }), _jsx("td", { className: "px-4 py-3", children: _jsx(StockEditor, { sku: row.sku, quantity: row.quantity, reserved: row.reserved, onSave: handleSetStock }) }), _jsx("td", { className: "px-4 py-3", children: _jsx(VariantImageUpload, { productId: product.id, variant: row, onUploaded: (updated) => {
                                                         onProductUpdated({
                                                             ...product,
                                                             variants: productVariants(product).map((v) => v.sku === updated.sku ? updated : v),
@@ -173,7 +178,7 @@ function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onRe
                                                                         ? err.message
                                                                         : "Failed to delete variant", "error");
                                                                 }
-                                                            }, className: "text-xs font-semibold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40", children: "Delete" })] }) })] }), editingSku === row.sku && (_jsx("tr", { className: "bg-[#FAFAFA]", children: _jsx("td", { colSpan: 8, className: "px-4 py-4", children: _jsx(VariantEditForm, { productId: product.id, variant: row, onSaved: async () => {
+                                                            }, className: "text-xs font-semibold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40", children: "Delete" })] }) })] }), editingSku === row.sku && (_jsx("tr", { className: "bg-[#FAFAFA]", children: _jsx("td", { colSpan: 9, className: "px-4 py-4", children: _jsx(VariantEditForm, { productId: product.id, variant: row, onSaved: async () => {
                                                     setEditingSku(null);
                                                     await onReload();
                                                     notify(`Updated ${row.sku}`);
@@ -214,17 +219,50 @@ function VariantEditForm({ productId, variant, onSaved, onCancel, }) {
             setSaving(false);
         }
     }
-    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-3", children: [_jsxs("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: ["Edit ", variant.sku] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color", _jsx("input", { required: true, value: color, onChange: (e) => setColor(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size", _jsx("input", { value: size, onChange: (e) => setSize(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-28 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "inactive", children: "Inactive" }), _jsx("option", { value: "draft", children: "Draft" })] })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-[#F4F3F8] px-3 py-1.5 text-xs font-semibold text-[#6B6480]", children: "Cancel" })] })] }));
+    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-3", children: [_jsxs("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: ["Edit ", variant.sku] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color", _jsx("input", { required: true, value: color, onChange: (e) => setColor(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size", _jsx("input", { value: size, onChange: (e) => setSize(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-28 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-[#F4F3F8] px-3 py-1.5 text-xs font-semibold text-[#6B6480]", children: "Cancel" })] })] }));
 }
 function AddVariantForm({ productId, onAdded, onCancel, }) {
     const { notify } = useNotify();
-    const [color, setColor] = useState("");
-    const [size, setSize] = useState("");
-    const [sku, setSku] = useState("");
+    const [colors, setColors] = useState([]);
+    const [sizes, setSizes] = useState([]);
+    const [editions, setEditions] = useState([]);
+    const [colorCode, setColorCode] = useState("");
+    const [sizeCode, setSizeCode] = useState("OS");
+    const [editionCode, setEditionCode] = useState("");
     const [price, setPrice] = useState("");
     const [initialStock, setInitialStock] = useState("");
     const [status, setStatus] = useState("active");
     const [saving, setSaving] = useState(false);
+    const [loadingMasters, setLoadingMasters] = useState(true);
+    useEffect(() => {
+        let cancelled = false;
+        Promise.all([listColors(), listSizes(), listEditions()])
+            .then(([c, s, e]) => {
+            if (cancelled)
+                return;
+            setColors(c);
+            setSizes(s);
+            setEditions(e);
+            if (c[0])
+                setColorCode(c[0].code);
+            if (s.some((row) => row.code === "OS"))
+                setSizeCode("OS");
+            else if (s[0])
+                setSizeCode(s[0].code);
+        })
+            .catch((err) => {
+            if (!cancelled) {
+                notify(err instanceof Error ? err.message : "Failed to load catalog masters", "error");
+            }
+        })
+            .finally(() => {
+            if (!cancelled)
+                setLoadingMasters(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [notify]);
     async function handleSubmit(e) {
         e.preventDefault();
         const parsedPrice = Number.parseFloat(price);
@@ -232,13 +270,21 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
             notify("Enter a valid price", "error");
             return;
         }
+        if (!colorCode || !sizeCode) {
+            notify("Select color and size codes", "error");
+            return;
+        }
         setSaving(true);
         try {
+            const colorName = colors.find((c) => c.code === colorCode)?.name;
+            const sizeName = sizes.find((s) => s.code === sizeCode)?.name;
             const variant = await createVariant(productId, {
-                color: color.trim(),
-                size: size.trim(),
+                colorCode,
+                sizeCode,
+                editionCode: editionCode || undefined,
+                color: colorName,
+                size: sizeName,
                 price: parsedPrice,
-                sku: sku.trim() || undefined,
                 status,
             });
             const stockQty = Number.parseInt(initialStock, 10);
@@ -254,7 +300,10 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
             setSaving(false);
         }
     }
-    return (_jsxs("form", { onSubmit: handleSubmit, className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 space-y-3", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "New variant" }), _jsxs("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color *", _jsx("input", { required: true, value: color, onChange: (e) => setColor(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Navy" })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size", _jsx("input", { value: size, onChange: (e) => setSize(e.target.value), className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["SKU", _jsx("input", { value: sku, onChange: (e) => setSku(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Auto-generated if empty" })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price (USD) *", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "inactive", children: "Inactive" }), _jsx("option", { value: "draft", children: "Draft" })] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Initial stock", _jsx("input", { type: "number", min: 0, value: initialStock, onChange: (e) => setInitialStock(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Inventory for this SKU" })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Adding…" : "Add variant" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#6B6480] border border-[#E5E3EE]", children: "Cancel" })] })] }));
+    if (loadingMasters) {
+        return (_jsx("div", { className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 text-sm text-[#6B6480]", children: "Loading catalog masters\u2026" }));
+    }
+    return (_jsxs("form", { onSubmit: handleSubmit, className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 space-y-3", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "New variant" }), _jsx("p", { className: "text-xs text-[#6B6480]", children: "Human SKU is composed from parent brand/style + these codes. Manage dictionaries under Catalog." }), _jsxs("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color code *", _jsx("select", { required: true, value: colorCode, onChange: (e) => setColorCode(e.target.value), className: `block w-full ${inputCls}`, children: colors.map((c) => (_jsxs("option", { value: c.code, children: [c.code, " \u2014 ", c.name] }, c.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size code *", _jsx("select", { required: true, value: sizeCode, onChange: (e) => setSizeCode(e.target.value), className: `block w-full ${inputCls}`, children: sizes.map((s) => (_jsxs("option", { value: s.code, children: [s.code, " \u2014 ", s.name] }, s.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Edition code", _jsxs("select", { value: editionCode, onChange: (e) => setEditionCode(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "", children: "None" }), editions.map((ed) => (_jsxs("option", { value: ed.code, children: [ed.code, " \u2014 ", ed.name] }, ed.code)))] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price (USD) *", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Initial stock", _jsx("input", { type: "number", min: 0, value: initialStock, onChange: (e) => setInitialStock(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Inventory for this SKU" })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Adding…" : "Add variant" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#6B6480] border border-[#E5E3EE]", children: "Cancel" })] })] }));
 }
 function StockEditor({ sku, quantity, reserved, onSave, }) {
     const [value, setValue] = useState(quantity != null ? String(quantity) : "");

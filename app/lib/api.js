@@ -26,10 +26,14 @@ function hitStringArray(hit, key) {
 function mapVariant(hit) {
     const sku = hitString(hit, "sku") ?? hitString(hit, "id") ?? "unknown-sku";
     return {
+        skuId: hitString(hit, "skuId") ?? hitString(hit, "sku_id"),
         sku,
         productId: hitString(hit, "product_id") ?? hitString(hit, "productId"),
         color: hitString(hit, "color") ?? "",
         size: hitString(hit, "size") ?? "",
+        colorCode: hitString(hit, "colorCode") ?? hitString(hit, "color_code"),
+        sizeCode: hitString(hit, "sizeCode") ?? hitString(hit, "size_code"),
+        editionCode: hitString(hit, "editionCode") ?? hitString(hit, "edition_code"),
         price: hitNumber(hit, "price") ?? 0,
         status: hitString(hit, "status") ?? "active",
         imageUrls: hitStringArray(hit, "imageUrls") ?? [],
@@ -148,6 +152,8 @@ export function mapProduct(hit, category, index = 0) {
         stock: hitNumber(hit, "stock") ?? hitNumber(hit, "quantity"),
         description: hitString(hit, "description"),
         brand: hitString(hit, "brand"),
+        brandCode: hitString(hit, "brandCode") ?? hitString(hit, "brand_code"),
+        styleCode: hitString(hit, "styleCode") ?? hitString(hit, "style_code"),
         color: hitString(hit, "color"),
         material: hitString(hit, "material"),
         sku: hitString(hit, "sku") ?? hitString(hit, "id"),
@@ -231,11 +237,13 @@ export async function createProductParent(input) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             name: input.name,
-            id: input.id,
+            brandCode: input.brandCode,
+            styleCode: input.styleCode,
             brand: input.brand,
             material: input.material,
             category: input.category ?? "bags",
             description: input.description,
+            status: input.status ?? "active",
         }),
     });
     if (!res.ok)
@@ -248,10 +256,12 @@ export async function createVariant(productId, input) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+            colorCode: input.colorCode,
+            sizeCode: input.sizeCode,
+            editionCode: input.editionCode || undefined,
             color: input.color,
+            size: input.size,
             price: input.price,
-            size: input.size ?? "",
-            sku: input.sku,
             status: input.status ?? "active",
         }),
     });
@@ -311,6 +321,160 @@ export async function deleteProduct(id) {
     if (!res.ok)
         throw new Error(await readError(res, "Failed to delete product"));
 }
+// ── Catalog master data (SKU dictionaries) ─────────────────────────────────────
+async function parseCatalogList(res, fallback) {
+    if (!res.ok)
+        throw new Error(await readError(res, fallback));
+    const data = (await res.json());
+    if (Array.isArray(data))
+        return data;
+    return Array.isArray(data.results) ? data.results : [];
+}
+export async function listBrands() {
+    const res = await authedFetch(productPath("/api/v1/catalog/brands"));
+    return parseCatalogList(res, "Failed to list brands");
+}
+export async function createBrand(code, name) {
+    const res = await authedFetch(productPath("/api/v1/catalog/brands"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create brand"));
+    return res.json();
+}
+export async function renameBrand(code, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(code)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to rename brand"));
+    return res.json();
+}
+export async function deleteBrand(code) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(code)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete brand"));
+}
+export async function listStyles(brandCode) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles`));
+    return parseCatalogList(res, "Failed to list styles");
+}
+export async function createStyle(brandCode, code, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create style"));
+    return res.json();
+}
+export async function renameStyle(brandCode, styleCode, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles/${encodeURIComponent(styleCode)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to rename style"));
+    return res.json();
+}
+export async function deleteStyle(brandCode, styleCode) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/brands/${encodeURIComponent(brandCode)}/styles/${encodeURIComponent(styleCode)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete style"));
+}
+export async function listColors() {
+    const res = await authedFetch(productPath("/api/v1/catalog/colors"));
+    return parseCatalogList(res, "Failed to list colors");
+}
+export async function createColor(code, name) {
+    const res = await authedFetch(productPath("/api/v1/catalog/colors"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create color"));
+    return res.json();
+}
+export async function renameColor(code, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/colors/${encodeURIComponent(code)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to rename color"));
+    return res.json();
+}
+export async function deleteColor(code) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/colors/${encodeURIComponent(code)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete color"));
+}
+export async function listSizes() {
+    const res = await authedFetch(productPath("/api/v1/catalog/sizes"));
+    return parseCatalogList(res, "Failed to list sizes");
+}
+export async function createSize(code, name) {
+    const res = await authedFetch(productPath("/api/v1/catalog/sizes"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create size"));
+    return res.json();
+}
+export async function renameSize(code, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/sizes/${encodeURIComponent(code)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to rename size"));
+    return res.json();
+}
+export async function deleteSize(code) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/sizes/${encodeURIComponent(code)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete size"));
+}
+export async function listEditions() {
+    const res = await authedFetch(productPath("/api/v1/catalog/editions"));
+    return parseCatalogList(res, "Failed to list editions");
+}
+export async function createEdition(code, name) {
+    const res = await authedFetch(productPath("/api/v1/catalog/editions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to create edition"));
+    return res.json();
+}
+export async function renameEdition(code, name) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/editions/${encodeURIComponent(code)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to rename edition"));
+    return res.json();
+}
+export async function deleteEdition(code) {
+    const res = await authedFetch(productPath(`/api/v1/catalog/editions/${encodeURIComponent(code)}`), { method: "DELETE" });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to delete edition"));
+}
 export async function getCoupons() {
     const res = await authedFetch(productPath("/api/v1/coupons"));
     if (!res.ok)
@@ -368,6 +532,16 @@ export async function getOrder(id) {
         throw new Error(await readError(res, "Order not found"));
     return res.json();
 }
+/** Ship a paid order (`paid` → `in_transit`). Requires `order.ship`. */
+export async function shipOrder(id) {
+    const res = await authedFetch(orderPath(`/api/v1/orders/${id}/ship`), {
+        method: "POST",
+    });
+    if (!res.ok)
+        throw new Error(await readError(res, "Failed to ship order"));
+    return res.json();
+}
+/** Cancel or fulfill via status API. Use `shipOrder` for `in_transit`. */
 export async function updateOrderStatus(id, status) {
     const res = await authedFetch(orderPath(`/api/v1/orders/${id}/status`), {
         method: "PUT",
@@ -457,6 +631,8 @@ export const PERMISSION_CATALOG = [
     "product.variant.update",
     "product.variant.delete",
     "product.image.upload",
+    "product.master.read",
+    "product.master.write",
     "coupon.read",
     "coupon.create",
     "coupon.update",
