@@ -22,6 +22,7 @@ export const ko = {
         backendOnline: "백엔드 연결됨",
         loading: "로딩 중…",
         language: "언어",
+        versionLabel: "v{version} · 빌드 {build}",
     },
     common: {
         loadingEllipsis: "…",
@@ -482,6 +483,11 @@ export const ko = {
         clearAllProductDataDesc: "카탈로그의 모든 상품을 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
         clearData: "데이터 삭제",
         notImplementedDemo: "데모에서는 구현되지 않았습니다.",
+        sectionAbout: "정보",
+        sectionAboutDesc: "배포된 애플리케이션 버전 및 빌드 정보.",
+        appVersion: "버전",
+        buildNumber: "빌드 번호",
+        gitCommit: "커밋",
     },
     errors: {
         oops: "오류!",

@@ -42,14 +42,28 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Read package version
+        id: pkg
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          APP_VERSION: ${{ steps.pkg.outputs.version }}
+          APP_BUILD_NUMBER: ${{ github.run_number }}
+          APP_GIT_SHA: ${{ github.sha }}
         run: |
-          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker build \
+            --build-arg "APP_VERSION=$APP_VERSION" \
+            --build-arg "APP_BUILD_NUMBER=$APP_BUILD_NUMBER" \
+            --build-arg "APP_GIT_SHA=$APP_GIT_SHA" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:v$APP_VERSION-b$APP_BUILD_NUMBER" \
+            .
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:v$APP_VERSION-b$APP_BUILD_NUMBER"
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Render Amazon ECS task definition

@@ -2,6 +2,11 @@ import { useState } from "react";
 import { useI18n } from "~/lib/i18n";
 import { LanguageSwitcher } from "~/lib/i18n/LanguageSwitcher";
 import { useNotify } from "~/lib/notifications";
+import {
+  APP_BUILD_NUMBER,
+  APP_VERSION,
+  shortGitSha,
+} from "~/lib/version";
 
 export function meta() {
   return [{ title: "Settings | Dupli1 Admin" }];
@@ -254,6 +259,39 @@ export default function Settings() {
             </button>
           </div>
         </form>
+      </Section>
+
+      {/* About / version */}
+      <Section
+        title={t("settings.sectionAbout")}
+        description={t("settings.sectionAboutDesc")}
+      >
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+              {t("settings.appVersion")}
+            </dt>
+            <dd className="mt-1 font-mono text-sm tabular-nums text-[#1C1B1F]">
+              {APP_VERSION}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+              {t("settings.buildNumber")}
+            </dt>
+            <dd className="mt-1 font-mono text-sm tabular-nums text-[#1C1B1F]">
+              {APP_BUILD_NUMBER}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+              {t("settings.gitCommit")}
+            </dt>
+            <dd className="mt-1 font-mono text-sm tabular-nums text-[#1C1B1F]">
+              {shortGitSha()}
+            </dd>
+          </div>
+        </dl>
       </Section>
 
       {/* Danger zone */}

@@ -22,6 +22,7 @@ export const en = {
     backendOnline: "Backend online",
     loading: "Loading…",
     language: "Language",
+    versionLabel: "v{version} · build {build}",
   },
 
   common: {
@@ -516,6 +517,11 @@ export const en = {
       "Permanently deletes all products from the catalog. This cannot be undone.",
     clearData: "Clear data",
     notImplementedDemo: "Not implemented in demo.",
+    sectionAbout: "About",
+    sectionAboutDesc: "Deployed application version and build metadata.",
+    appVersion: "Version",
+    buildNumber: "Build number",
+    gitCommit: "Commit",
   },
 
   errors: {
