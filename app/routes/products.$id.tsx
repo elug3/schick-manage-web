@@ -14,6 +14,7 @@ import {
   listColors,
   listEditions,
   listSizes,
+  productSkuPath,
   productVariants,
   setInventory,
   updateProduct,
@@ -439,10 +440,24 @@ function VariantsSection({
               <Fragment key={row.sku}>
                 <tr className="border-b border-[#F0EEF8] last:border-0 align-top">
                   <td className="px-4 py-3 font-mono text-xs text-[#1C1B1F]">
-                    {row.sku}
+                    <Link
+                      to={productSkuPath(product.id, row.skuId ?? row.sku)}
+                      className="text-[#6D4AFF] hover:underline"
+                    >
+                      {row.sku}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 font-mono text-[10px] text-[#9D98B3]">
-                    {row.skuId ?? t("common.emptyValue")}
+                    {row.skuId ? (
+                      <Link
+                        to={productSkuPath(product.id, row.skuId)}
+                        className="hover:text-[#6D4AFF] hover:underline"
+                      >
+                        {row.skuId}
+                      </Link>
+                    ) : (
+                      t("common.emptyValue")
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[#6B6480]">
                     {formatVariantOption(row)}
@@ -511,6 +526,12 @@ function VariantsSection({
                           ? t("common.cancel")
                           : t("common.edit")}
                       </button>
+                      <Link
+                        to={productSkuPath(product.id, row.skuId ?? row.sku)}
+                        className="text-xs font-semibold text-[#6D4AFF] hover:underline"
+                      >
+                        {t("skuDetail.open")}
+                      </Link>
                       <button
                         type="button"
                         disabled={rows.length <= 1}

@@ -63,6 +63,12 @@ type Pages = {
   "/products/new": {
     params: {};
   };
+  "/products/:id/SKU/:skuId": {
+    params: {
+      "id": string;
+      "skuId": string;
+    };
+  };
   "/products/:id": {
     params: {
       "id": string;
@@ -99,7 +105,7 @@ type Pages = {
 type RouteFiles = {
   "root.js": {
     id: "root";
-    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/auth/session/register" | "/auth/session/gateway/*" | "/auth/api/*" | "/product/*" | "/inventory/*" | "/order/*" | "/login" | "/products" | "/products/new" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
+    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/auth/session/register" | "/auth/session/gateway/*" | "/auth/api/*" | "/product/*" | "/inventory/*" | "/order/*" | "/login" | "/products" | "/products/new" | "/products/:id/SKU/:skuId" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
   };
   "routes/auth.session.login.tsx": {
     id: "routes/auth.session.login";
@@ -147,7 +153,7 @@ type RouteFiles = {
   };
   "routes/admin.tsx": {
     id: "routes/admin";
-    page: "/" | "/products" | "/products/new" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
+    page: "/" | "/products" | "/products/new" | "/products/:id/SKU/:skuId" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -160,6 +166,10 @@ type RouteFiles = {
   "routes/products.new.tsx": {
     id: "routes/products.new";
     page: "/products/new";
+  };
+  "routes/products.$id.SKU.$skuId.tsx": {
+    id: "routes/products.$id.SKU.$skuId";
+    page: "/products/:id/SKU/:skuId";
   };
   "routes/products.$id.tsx": {
     id: "routes/products.$id";
@@ -216,6 +226,7 @@ type RouteModules = {
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/products": typeof import("./app/routes/products.tsx");
   "routes/products.new": typeof import("./app/routes/products.new.tsx");
+  "routes/products.$id.SKU.$skuId": typeof import("./app/routes/products.$id.SKU.$skuId.tsx");
   "routes/products.$id": typeof import("./app/routes/products.$id.tsx");
   "routes/catalog": typeof import("./app/routes/catalog.tsx");
   "routes/orders": typeof import("./app/routes/orders.tsx");

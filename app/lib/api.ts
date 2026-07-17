@@ -161,6 +161,23 @@ export function productVariants(product: Product): ProductVariant[] {
   return [legacyVariantFromProduct(product)];
 }
 
+/** Resolve a variant by canonical skuId, falling back to human sku. */
+export function findVariant(
+  product: Product,
+  skuIdOrSku: string
+): ProductVariant | undefined {
+  const variants = productVariants(product);
+  return (
+    variants.find((v) => v.skuId === skuIdOrSku) ??
+    variants.find((v) => v.sku === skuIdOrSku)
+  );
+}
+
+/** Admin SKU detail path: `/products/{productId}/SKU/{skuId}`. */
+export function productSkuPath(productId: string, skuIdOrSku: string): string {
+  return `/products/${encodeURIComponent(productId)}/SKU/${encodeURIComponent(skuIdOrSku)}`;
+}
+
 export function formatVariantOption(variant: ProductVariant): string {
   const parts = [variant.color, variant.size].filter(Boolean);
   return parts.length > 0 ? parts.join(" / ") : variant.sku;
@@ -985,6 +1002,17 @@ export interface StockItem {
 export async function getInventory(sku: string): Promise<StockItem> {
   const res = await authedFetch(
     inventoryPath(`/api/v1/inventory/${encodeURIComponent(sku)}`)
+  );
+  if (!res.ok) throw new Error(await readError(res, "Stock item not found"));
+  return res.json() as Promise<StockItem>;
+}
+
+/** Inventory lookup by canonical ULID `skuId`. */
+export async function getInventoryBySkuId(skuId: string): Promise<StockItem> {
+  const res = await authedFetch(
+    inventoryPath(
+      `/api/v1/inventory/by-sku-id/${encodeURIComponent(skuId)}`
+    )
   );
   if (!res.ok) throw new Error(await readError(res, "Stock item not found"));
   return res.json() as Promise<StockItem>;

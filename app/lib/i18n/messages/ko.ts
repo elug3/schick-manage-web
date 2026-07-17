@@ -262,6 +262,28 @@ export const ko: Messages = {
     noImagesYet: "아직 이미지가 없습니다.",
   },
 
+  skuDetail: {
+    metaTitle: "SKU | Dupli1 Admin",
+    heading: "SKU 상세",
+    backToProduct: "← 상품으로 돌아가기",
+    skuNotFound: "이 상품에서 SKU를 찾을 수 없습니다",
+    failedToLoad: "SKU를 불러오지 못했습니다",
+    humanSku: "사람용 SKU",
+    skuId: "skuId",
+    productId: "상품 ID",
+    colorCode: "컬러 코드",
+    sizeCode: "사이즈 코드",
+    editionCode: "에디션 코드",
+    stockWithReserved: "{quantity} (예약 {reserved})",
+    inventory: "재고",
+    quantity: "수량",
+    updateStock: "재고 업데이트",
+    enterValidStock: "유효한 재고 수량을 입력하세요",
+    editSku: "SKU 수정",
+    deleteSku: "SKU 삭제",
+    open: "열기",
+  },
+
   catalog: {
     metaTitle: "카탈로그 마스터 | Dupli1 Admin",
     title: "카탈로그 마스터",

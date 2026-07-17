@@ -262,6 +262,28 @@ export const zhCN: Messages = {
     noImagesYet: "暂无图片。",
   },
 
+  skuDetail: {
+    metaTitle: "SKU | Dupli1 Admin",
+    heading: "SKU 详情",
+    backToProduct: "← 返回商品",
+    skuNotFound: "在此商品上未找到该 SKU",
+    failedToLoad: "无法加载 SKU",
+    humanSku: "可读 SKU",
+    skuId: "skuId",
+    productId: "商品 ID",
+    colorCode: "颜色代码",
+    sizeCode: "尺码代码",
+    editionCode: "版本代码",
+    stockWithReserved: "{quantity}（已预留 {reserved}）",
+    inventory: "库存",
+    quantity: "数量",
+    updateStock: "更新库存",
+    enterValidStock: "请输入有效库存数量",
+    editSku: "编辑 SKU",
+    deleteSku: "删除 SKU",
+    open: "打开",
+  },
+
   catalog: {
     metaTitle: "目录主数据 | Dupli1 Admin",
     title: "目录主数据",
