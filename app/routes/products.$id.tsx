@@ -4,15 +4,19 @@ import {
   type CatalogCodeName,
   type Product,
   type ProductVariant,
+  DEFAULT_DISCOUNT_RATE,
   createVariant,
   deleteVariant,
+  discountRateFromPrices,
   formatVariantOption,
   getInventory,
   getManageProduct,
   listColors,
   listEditions,
   listSizes,
+  productSkuPath,
   productVariants,
+  salePriceFromList,
   setInventory,
   updateProduct,
   updateVariant,
@@ -23,6 +27,7 @@ import { useNotify } from "~/lib/notifications";
 
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const LOW_STOCK_THRESHOLD = 5;
+const DEFAULT_DISCOUNT_PCT = String(Math.round(DEFAULT_DISCOUNT_RATE * 100));
 const inputCls =
   "rounded-lg border border-[#E5E3EE] px-2 py-1.5 text-sm outline-none focus:border-[#6D4AFF]";
 const fieldCls =
@@ -210,6 +215,14 @@ function ParentSummarySection({
       : product.price != null
         ? formatCurrency(product.price)
         : "—";
+  const listFrom =
+    product.sellingPriceFrom != null
+      ? formatCurrency(product.sellingPriceFrom)
+      : "—";
+  const parentDiscount = discountRateFromPrices(
+    product.sellingPriceFrom,
+    product.priceFrom ?? product.price ?? 0
+  );
 
   return (
     <div>
@@ -323,7 +336,14 @@ function ParentSummarySection({
             ["Material", product.material],
             ["Status", product.status],
             ["Colors", colors],
-            ["Price from", priceFrom],
+            ["List from", listFrom],
+            ["Sale from", priceFrom],
+            [
+              "Discount",
+              parentDiscount != null
+                ? `${Math.round(parentDiscount * 100)}%`
+                : "—",
+            ],
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
@@ -393,7 +413,9 @@ function VariantsSection({
                 "SKU",
                 "skuId",
                 "Option",
-                "Price",
+                "List",
+                "Sale",
+                "Off",
                 "Status",
                 "Stock",
                 "Images",
@@ -415,10 +437,27 @@ function VariantsSection({
               <Fragment key={row.sku}>
                 <tr className="border-b border-[#F0EEF8] last:border-0 align-top">
                   <td className="px-4 py-3 font-mono text-xs text-[#1C1B1F]">
-                    {row.sku}
+                    <Link
+                      to={productSkuPath(
+                        product.id,
+                        row.skuId ?? row.sku
+                      )}
+                      className="text-[#6D4AFF] hover:underline"
+                    >
+                      {row.sku}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 font-mono text-[10px] text-[#9D98B3]">
-                    {row.skuId ?? "—"}
+                    {row.skuId ? (
+                      <Link
+                        to={productSkuPath(product.id, row.skuId)}
+                        className="hover:text-[#6D4AFF] hover:underline"
+                      >
+                        {row.skuId}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[#6B6480]">
                     {formatVariantOption(row)}
@@ -430,8 +469,22 @@ function VariantsSection({
                       </div>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-[#6B6480]">
+                    {row.sellingPrice != null
+                      ? formatCurrency(row.sellingPrice)
+                      : "—"}
+                  </td>
                   <td className="px-4 py-3 text-[#1C1B1F]">
                     {formatCurrency(row.price)}
+                  </td>
+                  <td className="px-4 py-3 text-[#6B6480]">
+                    {(() => {
+                      const rate = discountRateFromPrices(
+                        row.sellingPrice,
+                        row.price
+                      );
+                      return rate != null ? `${Math.round(rate * 100)}%` : "—";
+                    })()}
                   </td>
                   <td className="px-4 py-3 capitalize text-[#6B6480]">
                     {row.status}
@@ -485,6 +538,12 @@ function VariantsSection({
                       >
                         {editingSku === row.sku ? "Cancel" : "Edit"}
                       </button>
+                      <Link
+                        to={productSkuPath(product.id, row.skuId ?? row.sku)}
+                        className="text-xs font-semibold text-[#6D4AFF] hover:underline"
+                      >
+                        Open
+                      </Link>
                       <button
                         type="button"
                         disabled={rows.length <= 1}
@@ -524,7 +583,7 @@ function VariantsSection({
                 </tr>
                 {editingSku === row.sku && (
                   <tr className="bg-[#FAFAFA]">
-                    <td colSpan={9} className="px-4 py-4">
+                    <td colSpan={11} className="px-4 py-4">
                       <VariantEditForm
                         productId={product.id}
                         variant={row}
@@ -583,15 +642,25 @@ function VariantEditForm({
   const { notify } = useNotify();
   const [color, setColor] = useState(variant.color);
   const [size, setSize] = useState(variant.size);
+  const [sellingPrice, setSellingPrice] = useState(
+    variant.sellingPrice != null ? String(variant.sellingPrice) : ""
+  );
+  const initialDiscount =
+    discountRateFromPrices(variant.sellingPrice, variant.price) ??
+    DEFAULT_DISCOUNT_RATE;
+  const [discountPct, setDiscountPct] = useState(
+    String(Math.round(initialDiscount * 100))
+  );
   const [price, setPrice] = useState(String(variant.price));
   const [status, setStatus] = useState(variant.status);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsedPrice = Number.parseFloat(price);
-    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-      notify("Enter a valid price", "error");
+    const parsedSale = Number.parseFloat(price);
+    const parsedList = Number.parseFloat(sellingPrice);
+    if (Number.isNaN(parsedSale) || parsedSale < 0) {
+      notify("Enter a valid sale price", "error");
       return;
     }
 
@@ -600,7 +669,8 @@ function VariantEditForm({
       await updateVariant(productId, variant.sku, {
         color: color.trim(),
         size: size.trim(),
-        price: parsedPrice,
+        price: parsedSale,
+        sellingPrice: Number.isNaN(parsedList) ? undefined : parsedList,
         status: status.trim() || "active",
       });
       await onSaved();
@@ -635,7 +705,46 @@ function VariantEditForm({
           />
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">
-          Price
+          List price
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={sellingPrice}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSellingPrice(next);
+              const list = Number.parseFloat(next);
+              const rate = Number.parseFloat(discountPct) / 100;
+              if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                setPrice(String(salePriceFromList(list, rate)));
+              }
+            }}
+            className={`block w-28 ${inputCls}`}
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[#6B6480]">
+          Discount %
+          <input
+            type="number"
+            min={0}
+            max={99}
+            step="1"
+            value={discountPct}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDiscountPct(next);
+              const list = Number.parseFloat(sellingPrice);
+              const rate = Number.parseFloat(next) / 100;
+              if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                setPrice(String(salePriceFromList(list, rate)));
+              }
+            }}
+            className={`block w-20 ${inputCls}`}
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[#6B6480]">
+          Sale price
           <input
             required
             type="number"
@@ -695,6 +804,8 @@ function AddVariantForm({
   const [colorCode, setColorCode] = useState("");
   const [sizeCode, setSizeCode] = useState("OS");
   const [editionCode, setEditionCode] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
+  const [discountPct, setDiscountPct] = useState(DEFAULT_DISCOUNT_PCT);
   const [price, setPrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
   const [status, setStatus] = useState("active");
@@ -731,9 +842,23 @@ function AddVariantForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const parsedList = Number.parseFloat(sellingPrice);
+    const parsedDiscount = Number.parseFloat(discountPct) / 100;
     const parsedPrice = Number.parseFloat(price);
+    if (Number.isNaN(parsedList) || parsedList < 0) {
+      notify("Enter a valid list price", "error");
+      return;
+    }
+    if (
+      Number.isNaN(parsedDiscount) ||
+      parsedDiscount < 0 ||
+      parsedDiscount >= 1
+    ) {
+      notify("Discount rate must be between 0 and 99%", "error");
+      return;
+    }
     if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-      notify("Enter a valid price", "error");
+      notify("Enter a valid sale price", "error");
       return;
     }
     if (!colorCode || !sizeCode) {
@@ -751,6 +876,7 @@ function AddVariantForm({
         editionCode: editionCode || undefined,
         color: colorName,
         size: sizeName,
+        sellingPrice: parsedList,
         price: parsedPrice,
         status,
       });
@@ -835,7 +961,47 @@ function AddVariantForm({
           </select>
         </label>
         <label className="space-y-1 text-xs text-[#6B6480]">
-          Price (USD) *
+          List price (USD) *
+          <input
+            required
+            type="number"
+            min={0}
+            step="0.01"
+            value={sellingPrice}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSellingPrice(next);
+              const list = Number.parseFloat(next);
+              const rate = Number.parseFloat(discountPct) / 100;
+              if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                setPrice(String(salePriceFromList(list, rate)));
+              }
+            }}
+            className={`block w-full ${inputCls}`}
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[#6B6480]">
+          Discount (%)
+          <input
+            type="number"
+            min={0}
+            max={99}
+            step="1"
+            value={discountPct}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDiscountPct(next);
+              const list = Number.parseFloat(sellingPrice);
+              const rate = Number.parseFloat(next) / 100;
+              if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                setPrice(String(salePriceFromList(list, rate)));
+              }
+            }}
+            className={`block w-full ${inputCls}`}
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[#6B6480]">
+          Sale price (USD) *
           <input
             required
             type="number"
@@ -870,6 +1036,10 @@ function AddVariantForm({
           />
         </label>
       </div>
+      <p className="text-xs text-[#6B6480]">
+        Default discount is {DEFAULT_DISCOUNT_PCT}%. Sale price updates from
+        list × (1 − discount).
+      </p>
       <div className="flex gap-2">
         <button
           type="submit"

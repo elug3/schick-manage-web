@@ -102,7 +102,7 @@ app/
 
 Route modules use React Router 7 conventions: `loader` for data fetching, `action` for mutations, `default` export for the component.
 
-Admin surfaces: products (parent + variants), **catalog masters** (`/catalog`), orders, coupons, users, settings (local UI; manager settings API still sketch on backend).
+Admin surfaces: products (parent + variants), **SKU detail** (`/products/:id/SKU/:skuId`), **catalog masters** (`/catalog`), orders, coupons, users, settings (local UI; manager settings API still sketch on backend).
 
 ## Production access
 

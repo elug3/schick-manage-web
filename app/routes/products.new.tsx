@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import {
   type CatalogCodeName,
   type CatalogStyle,
+  DEFAULT_DISCOUNT_RATE,
   createProductParent,
   createStyle,
   createVariant,
@@ -11,6 +12,7 @@ import {
   listEditions,
   listSizes,
   listStyles,
+  salePriceFromList,
   setInventory,
   uploadProductImage,
   uploadVariantImage,
@@ -22,6 +24,7 @@ export function meta() {
 }
 
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
+const DEFAULT_DISCOUNT_PCT = String(Math.round(DEFAULT_DISCOUNT_RATE * 100));
 
 const inputCls =
   "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition placeholder:text-[#B4B0C8] focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
@@ -49,6 +52,8 @@ export default function NewProduct() {
   const [colorCode, setColorCode] = useState("");
   const [sizeCode, setSizeCode] = useState("OS");
   const [editionCode, setEditionCode] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
+  const [discountPct, setDiscountPct] = useState(DEFAULT_DISCOUNT_PCT);
   const [price, setPrice] = useState("");
   const [status, setStatus] = useState("active");
   const [initialStock, setInitialStock] = useState("");
@@ -222,9 +227,21 @@ export default function NewProduct() {
         throw new Error("Select color and size codes from catalog masters");
       }
 
+      const parsedList = Number.parseFloat(sellingPrice);
+      const parsedDiscount = Number.parseFloat(discountPct) / 100;
       const parsedPrice = Number.parseFloat(price);
+      if (Number.isNaN(parsedList) || parsedList < 0) {
+        throw new Error("Enter a valid list (selling) price");
+      }
+      if (
+        Number.isNaN(parsedDiscount) ||
+        parsedDiscount < 0 ||
+        parsedDiscount >= 1
+      ) {
+        throw new Error("Discount rate must be between 0 and 99%");
+      }
       if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-        throw new Error("Enter a valid price for the first variant");
+        throw new Error("Enter a valid sale price for the first variant");
       }
 
       const brandName = brands.find((b) => b.code === brandCode)?.name;
@@ -249,6 +266,7 @@ export default function NewProduct() {
           editionCode: editionCode || undefined,
           color: colorName,
           size: sizeName,
+          sellingPrice: parsedList,
           price: parsedPrice,
           status,
         });
@@ -472,7 +490,49 @@ export default function NewProduct() {
               ))}
             </select>
           </Field>
-          <Field label="Price (USD)" id="price" required>
+          <Field label="List price (USD)" id="sellingPrice" required>
+            <input
+              id="sellingPrice"
+              type="number"
+              required
+              min={0}
+              step="0.01"
+              value={sellingPrice}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSellingPrice(next);
+                const list = Number.parseFloat(next);
+                const rate = Number.parseFloat(discountPct) / 100;
+                if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                  setPrice(String(salePriceFromList(list, rate)));
+                }
+              }}
+              className={inputCls}
+              placeholder="Official / strikethrough price"
+            />
+          </Field>
+          <Field label="Discount rate (%)" id="discountPct" required>
+            <input
+              id="discountPct"
+              type="number"
+              required
+              min={0}
+              max={99}
+              step="1"
+              value={discountPct}
+              onChange={(e) => {
+                const next = e.target.value;
+                setDiscountPct(next);
+                const list = Number.parseFloat(sellingPrice);
+                const rate = Number.parseFloat(next) / 100;
+                if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                  setPrice(String(salePriceFromList(list, rate)));
+                }
+              }}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Sale price (USD)" id="price" required>
             <input
               id="price"
               type="number"
@@ -482,9 +542,14 @@ export default function NewProduct() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className={inputCls}
-              placeholder="2500"
+              placeholder="Charged at checkout"
             />
           </Field>
+          <p className="text-xs text-[#6B6480]">
+            Default discount is {DEFAULT_DISCOUNT_PCT}%. Sale price updates when
+            you change list price or discount; you can still override sale
+            price.
+          </p>
           <Field label="Status" id="status">
             <select
               id="status"

@@ -1,10 +1,11 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { createVariant, deleteVariant, formatVariantOption, getInventory, getManageProduct, listColors, listEditions, listSizes, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
+import { DEFAULT_DISCOUNT_RATE, createVariant, deleteVariant, discountRateFromPrices, formatVariantOption, getInventory, getManageProduct, listColors, listEditions, listSizes, productSkuPath, productVariants, salePriceFromList, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
 import { useNotify } from "~/lib/notifications";
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const LOW_STOCK_THRESHOLD = 5;
+const DEFAULT_DISCOUNT_PCT = String(Math.round(DEFAULT_DISCOUNT_RATE * 100));
 const inputCls = "rounded-lg border border-[#E5E3EE] px-2 py-1.5 text-sm outline-none focus:border-[#6D4AFF]";
 const fieldCls = "w-full rounded-xl border border-[#E5E3EE] bg-[#F8F7FC] px-4 py-2.5 text-sm text-[#1C1B1F] outline-none transition focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/20";
 export function meta() {
@@ -117,6 +118,10 @@ function ParentSummarySection({ product, onUpdated, }) {
         : product.price != null
             ? formatCurrency(product.price)
             : "—";
+    const listFrom = product.sellingPriceFrom != null
+        ? formatCurrency(product.sellingPriceFrom)
+        : "—";
+    const parentDiscount = discountRateFromPrices(product.sellingPriceFrom, product.priceFrom ?? product.price ?? 0);
     return (_jsxs("div", { children: [_jsxs("div", { className: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-2xl font-bold text-[#1C1B1F]", children: product.name }), _jsx("p", { className: "mt-1 text-sm capitalize text-[#6B6480]", children: product.category })] }), !editing && (_jsx("button", { type: "button", onClick: () => setEditing(true), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6D4AFF] transition hover:border-[#6D4AFF]/40 hover:bg-[#FAFAFA]", children: "Edit style" }))] }), editing ? (_jsxs("form", { onSubmit: handleSubmit, className: "mt-6 space-y-4", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Edit parent product" }), _jsxs("div", { className: "grid gap-4 sm:grid-cols-2", children: [_jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Name" }), _jsx("input", { required: true, value: name, onChange: (e) => setName(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Brand" }), _jsx("input", { required: true, value: brand, onChange: (e) => setBrand(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Material" }), _jsx("input", { required: true, value: material, onChange: (e) => setMaterial(e.target.value), className: fieldCls })] }), _jsxs("label", { className: "space-y-1.5", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Status" }), _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: fieldCls, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] }), _jsxs("label", { className: "space-y-1.5 sm:col-span-2", children: [_jsx("span", { className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: "Description" }), _jsx("textarea", { value: description, onChange: (e) => setDescription(e.target.value), rows: 3, className: fieldCls })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: () => setEditing(false), className: "rounded-xl border border-[#E5E3EE] px-4 py-2 text-sm font-semibold text-[#6B6480]", children: "Cancel" })] })] })) : (_jsxs("dl", { className: "mt-6 grid gap-4 sm:grid-cols-2", children: [[
                         ["ID", product.id],
                         ["Brand", product.brand],
@@ -125,7 +130,14 @@ function ParentSummarySection({ product, onUpdated, }) {
                         ["Material", product.material],
                         ["Status", product.status],
                         ["Colors", colors],
-                        ["Price from", priceFrom],
+                        ["List from", listFrom],
+                        ["Sale from", priceFrom],
+                        [
+                            "Discount",
+                            parentDiscount != null
+                                ? `${Math.round(parentDiscount * 100)}%`
+                                : "—",
+                        ],
                     ].map(([label, value]) => (_jsxs("div", { children: [_jsx("dt", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: label }), _jsx("dd", { className: "mt-1 text-sm text-[#1C1B1F]", children: value ?? "—" })] }, label))), product.description && (_jsxs("div", { className: "sm:col-span-2", children: [_jsx("dt", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "Description" }), _jsx("dd", { className: "mt-1 text-sm text-[#1C1B1F]", children: product.description })] }))] }))] }));
 }
 function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onReload, }) {
@@ -146,22 +158,29 @@ function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onRe
                                     "SKU",
                                     "skuId",
                                     "Option",
-                                    "Price",
+                                    "List",
+                                    "Sale",
+                                    "Off",
                                     "Status",
                                     "Stock",
                                     "Images",
                                     "",
                                     "Actions",
-                                ].map((heading) => (_jsx("th", { className: "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: heading }, heading))) }) }), _jsx("tbody", { children: rows.map((row) => (_jsxs(Fragment, { children: [_jsxs("tr", { className: "border-b border-[#F0EEF8] last:border-0 align-top", children: [_jsx("td", { className: "px-4 py-3 font-mono text-xs text-[#1C1B1F]", children: row.sku }), _jsx("td", { className: "px-4 py-3 font-mono text-[10px] text-[#9D98B3]", children: row.skuId ?? "—" }), _jsxs("td", { className: "px-4 py-3 text-[#6B6480]", children: [formatVariantOption(row), (row.colorCode || row.sizeCode || row.editionCode) && (_jsx("div", { className: "mt-0.5 font-mono text-[10px] text-[#9D98B3]", children: [row.colorCode, row.editionCode, row.sizeCode]
+                                ].map((heading) => (_jsx("th", { className: "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: heading }, heading))) }) }), _jsx("tbody", { children: rows.map((row) => (_jsxs(Fragment, { children: [_jsxs("tr", { className: "border-b border-[#F0EEF8] last:border-0 align-top", children: [_jsx("td", { className: "px-4 py-3 font-mono text-xs text-[#1C1B1F]", children: _jsx(Link, { to: productSkuPath(product.id, row.skuId ?? row.sku), className: "text-[#6D4AFF] hover:underline", children: row.sku }) }), _jsx("td", { className: "px-4 py-3 font-mono text-[10px] text-[#9D98B3]", children: row.skuId ? (_jsx(Link, { to: productSkuPath(product.id, row.skuId), className: "hover:text-[#6D4AFF] hover:underline", children: row.skuId })) : ("—") }), _jsxs("td", { className: "px-4 py-3 text-[#6B6480]", children: [formatVariantOption(row), (row.colorCode || row.sizeCode || row.editionCode) && (_jsx("div", { className: "mt-0.5 font-mono text-[10px] text-[#9D98B3]", children: [row.colorCode, row.editionCode, row.sizeCode]
                                                             .filter(Boolean)
-                                                            .join(" · ") }))] }), _jsx("td", { className: "px-4 py-3 text-[#1C1B1F]", children: formatCurrency(row.price) }), _jsx("td", { className: "px-4 py-3 capitalize text-[#6B6480]", children: row.status }), _jsx("td", { className: "px-4 py-3", children: _jsx(StockEditor, { sku: row.sku, quantity: row.quantity, reserved: row.reserved, onSave: handleSetStock }) }), _jsx("td", { className: "px-4 py-3", children: _jsx(VariantImageUpload, { productId: product.id, variant: row, onUploaded: (updated) => {
+                                                            .join(" · ") }))] }), _jsx("td", { className: "px-4 py-3 text-[#6B6480]", children: row.sellingPrice != null
+                                                    ? formatCurrency(row.sellingPrice)
+                                                    : "—" }), _jsx("td", { className: "px-4 py-3 text-[#1C1B1F]", children: formatCurrency(row.price) }), _jsx("td", { className: "px-4 py-3 text-[#6B6480]", children: (() => {
+                                                    const rate = discountRateFromPrices(row.sellingPrice, row.price);
+                                                    return rate != null ? `${Math.round(rate * 100)}%` : "—";
+                                                })() }), _jsx("td", { className: "px-4 py-3 capitalize text-[#6B6480]", children: row.status }), _jsx("td", { className: "px-4 py-3", children: _jsx(StockEditor, { sku: row.sku, quantity: row.quantity, reserved: row.reserved, onSave: handleSetStock }) }), _jsx("td", { className: "px-4 py-3", children: _jsx(VariantImageUpload, { productId: product.id, variant: row, onUploaded: (updated) => {
                                                         onProductUpdated({
                                                             ...product,
                                                             variants: productVariants(product).map((v) => v.sku === updated.sku ? updated : v),
                                                         });
                                                     } }) }), _jsxs("td", { className: "px-4 py-3", children: [row.quantity === 0 && (_jsx("span", { className: "rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600", children: "Out" })), row.quantity != null &&
                                                         row.quantity > 0 &&
-                                                        row.quantity <= LOW_STOCK_THRESHOLD && (_jsx("span", { className: "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700", children: "Low" }))] }), _jsx("td", { className: "px-4 py-3", children: _jsxs("div", { className: "flex flex-wrap gap-2", children: [_jsx("button", { type: "button", onClick: () => setEditingSku((current) => current === row.sku ? null : row.sku), className: "text-xs font-semibold text-[#6D4AFF] hover:underline", children: editingSku === row.sku ? "Cancel" : "Edit" }), _jsx("button", { type: "button", disabled: rows.length <= 1, title: rows.length <= 1
+                                                        row.quantity <= LOW_STOCK_THRESHOLD && (_jsx("span", { className: "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700", children: "Low" }))] }), _jsx("td", { className: "px-4 py-3", children: _jsxs("div", { className: "flex flex-wrap gap-2", children: [_jsx("button", { type: "button", onClick: () => setEditingSku((current) => current === row.sku ? null : row.sku), className: "text-xs font-semibold text-[#6D4AFF] hover:underline", children: editingSku === row.sku ? "Cancel" : "Edit" }), _jsx(Link, { to: productSkuPath(product.id, row.skuId ?? row.sku), className: "text-xs font-semibold text-[#6D4AFF] hover:underline", children: "Open" }), _jsx("button", { type: "button", disabled: rows.length <= 1, title: rows.length <= 1
                                                                 ? "Cannot delete the only variant"
                                                                 : undefined, onClick: async () => {
                                                                 if (!window.confirm(`Delete variant ${row.sku}? This cannot be undone.`)) {
@@ -178,7 +197,7 @@ function VariantsSection({ product, rows, onStockUpdated, onProductUpdated, onRe
                                                                         ? err.message
                                                                         : "Failed to delete variant", "error");
                                                                 }
-                                                            }, className: "text-xs font-semibold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40", children: "Delete" })] }) })] }), editingSku === row.sku && (_jsx("tr", { className: "bg-[#FAFAFA]", children: _jsx("td", { colSpan: 9, className: "px-4 py-4", children: _jsx(VariantEditForm, { productId: product.id, variant: row, onSaved: async () => {
+                                                            }, className: "text-xs font-semibold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40", children: "Delete" })] }) })] }), editingSku === row.sku && (_jsx("tr", { className: "bg-[#FAFAFA]", children: _jsx("td", { colSpan: 11, className: "px-4 py-4", children: _jsx(VariantEditForm, { productId: product.id, variant: row, onSaved: async () => {
                                                     setEditingSku(null);
                                                     await onReload();
                                                     notify(`Updated ${row.sku}`);
@@ -192,14 +211,19 @@ function VariantEditForm({ productId, variant, onSaved, onCancel, }) {
     const { notify } = useNotify();
     const [color, setColor] = useState(variant.color);
     const [size, setSize] = useState(variant.size);
+    const [sellingPrice, setSellingPrice] = useState(variant.sellingPrice != null ? String(variant.sellingPrice) : "");
+    const initialDiscount = discountRateFromPrices(variant.sellingPrice, variant.price) ??
+        DEFAULT_DISCOUNT_RATE;
+    const [discountPct, setDiscountPct] = useState(String(Math.round(initialDiscount * 100)));
     const [price, setPrice] = useState(String(variant.price));
     const [status, setStatus] = useState(variant.status);
     const [saving, setSaving] = useState(false);
     async function handleSubmit(e) {
         e.preventDefault();
-        const parsedPrice = Number.parseFloat(price);
-        if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-            notify("Enter a valid price", "error");
+        const parsedSale = Number.parseFloat(price);
+        const parsedList = Number.parseFloat(sellingPrice);
+        if (Number.isNaN(parsedSale) || parsedSale < 0) {
+            notify("Enter a valid sale price", "error");
             return;
         }
         setSaving(true);
@@ -207,7 +231,8 @@ function VariantEditForm({ productId, variant, onSaved, onCancel, }) {
             await updateVariant(productId, variant.sku, {
                 color: color.trim(),
                 size: size.trim(),
-                price: parsedPrice,
+                price: parsedSale,
+                sellingPrice: Number.isNaN(parsedList) ? undefined : parsedList,
                 status: status.trim() || "active",
             });
             await onSaved();
@@ -219,7 +244,23 @@ function VariantEditForm({ productId, variant, onSaved, onCancel, }) {
             setSaving(false);
         }
     }
-    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-3", children: [_jsxs("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: ["Edit ", variant.sku] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color", _jsx("input", { required: true, value: color, onChange: (e) => setColor(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size", _jsx("input", { value: size, onChange: (e) => setSize(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-28 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-[#F4F3F8] px-3 py-1.5 text-xs font-semibold text-[#6B6480]", children: "Cancel" })] })] }));
+    return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-3", children: [_jsxs("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: ["Edit ", variant.sku] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color", _jsx("input", { required: true, value: color, onChange: (e) => setColor(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size", _jsx("input", { value: size, onChange: (e) => setSize(e.target.value), className: `block ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["List price", _jsx("input", { type: "number", min: 0, step: "0.01", value: sellingPrice, onChange: (e) => {
+                                    const next = e.target.value;
+                                    setSellingPrice(next);
+                                    const list = Number.parseFloat(next);
+                                    const rate = Number.parseFloat(discountPct) / 100;
+                                    if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                                        setPrice(String(salePriceFromList(list, rate)));
+                                    }
+                                }, className: `block w-28 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Discount %", _jsx("input", { type: "number", min: 0, max: 99, step: "1", value: discountPct, onChange: (e) => {
+                                    const next = e.target.value;
+                                    setDiscountPct(next);
+                                    const list = Number.parseFloat(sellingPrice);
+                                    const rate = Number.parseFloat(next) / 100;
+                                    if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                                        setPrice(String(salePriceFromList(list, rate)));
+                                    }
+                                }, className: `block w-20 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Sale price", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-28 ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Saving…" : "Save changes" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-[#F4F3F8] px-3 py-1.5 text-xs font-semibold text-[#6B6480]", children: "Cancel" })] })] }));
 }
 function AddVariantForm({ productId, onAdded, onCancel, }) {
     const { notify } = useNotify();
@@ -229,6 +270,8 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
     const [colorCode, setColorCode] = useState("");
     const [sizeCode, setSizeCode] = useState("OS");
     const [editionCode, setEditionCode] = useState("");
+    const [sellingPrice, setSellingPrice] = useState("");
+    const [discountPct, setDiscountPct] = useState(DEFAULT_DISCOUNT_PCT);
     const [price, setPrice] = useState("");
     const [initialStock, setInitialStock] = useState("");
     const [status, setStatus] = useState("active");
@@ -265,9 +308,21 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
     }, [notify]);
     async function handleSubmit(e) {
         e.preventDefault();
+        const parsedList = Number.parseFloat(sellingPrice);
+        const parsedDiscount = Number.parseFloat(discountPct) / 100;
         const parsedPrice = Number.parseFloat(price);
+        if (Number.isNaN(parsedList) || parsedList < 0) {
+            notify("Enter a valid list price", "error");
+            return;
+        }
+        if (Number.isNaN(parsedDiscount) ||
+            parsedDiscount < 0 ||
+            parsedDiscount >= 1) {
+            notify("Discount rate must be between 0 and 99%", "error");
+            return;
+        }
         if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-            notify("Enter a valid price", "error");
+            notify("Enter a valid sale price", "error");
             return;
         }
         if (!colorCode || !sizeCode) {
@@ -284,6 +339,7 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
                 editionCode: editionCode || undefined,
                 color: colorName,
                 size: sizeName,
+                sellingPrice: parsedList,
                 price: parsedPrice,
                 status,
             });
@@ -303,7 +359,23 @@ function AddVariantForm({ productId, onAdded, onCancel, }) {
     if (loadingMasters) {
         return (_jsx("div", { className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 text-sm text-[#6B6480]", children: "Loading catalog masters\u2026" }));
     }
-    return (_jsxs("form", { onSubmit: handleSubmit, className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 space-y-3", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "New variant" }), _jsx("p", { className: "text-xs text-[#6B6480]", children: "Human SKU is composed from parent brand/style + these codes. Manage dictionaries under Catalog." }), _jsxs("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color code *", _jsx("select", { required: true, value: colorCode, onChange: (e) => setColorCode(e.target.value), className: `block w-full ${inputCls}`, children: colors.map((c) => (_jsxs("option", { value: c.code, children: [c.code, " \u2014 ", c.name] }, c.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size code *", _jsx("select", { required: true, value: sizeCode, onChange: (e) => setSizeCode(e.target.value), className: `block w-full ${inputCls}`, children: sizes.map((s) => (_jsxs("option", { value: s.code, children: [s.code, " \u2014 ", s.name] }, s.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Edition code", _jsxs("select", { value: editionCode, onChange: (e) => setEditionCode(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "", children: "None" }), editions.map((ed) => (_jsxs("option", { value: ed.code, children: [ed.code, " \u2014 ", ed.name] }, ed.code)))] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Price (USD) *", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Initial stock", _jsx("input", { type: "number", min: 0, value: initialStock, onChange: (e) => setInitialStock(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Inventory for this SKU" })] })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Adding…" : "Add variant" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#6B6480] border border-[#E5E3EE]", children: "Cancel" })] })] }));
+    return (_jsxs("form", { onSubmit: handleSubmit, className: "rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] p-4 space-y-3", children: [_jsx("p", { className: "text-xs font-semibold uppercase tracking-wide text-[#9D98B3]", children: "New variant" }), _jsx("p", { className: "text-xs text-[#6B6480]", children: "Human SKU is composed from parent brand/style + these codes. Manage dictionaries under Catalog." }), _jsxs("div", { className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3", children: [_jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Color code *", _jsx("select", { required: true, value: colorCode, onChange: (e) => setColorCode(e.target.value), className: `block w-full ${inputCls}`, children: colors.map((c) => (_jsxs("option", { value: c.code, children: [c.code, " \u2014 ", c.name] }, c.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Size code *", _jsx("select", { required: true, value: sizeCode, onChange: (e) => setSizeCode(e.target.value), className: `block w-full ${inputCls}`, children: sizes.map((s) => (_jsxs("option", { value: s.code, children: [s.code, " \u2014 ", s.name] }, s.code))) })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Edition code", _jsxs("select", { value: editionCode, onChange: (e) => setEditionCode(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "", children: "None" }), editions.map((ed) => (_jsxs("option", { value: ed.code, children: [ed.code, " \u2014 ", ed.name] }, ed.code)))] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["List price (USD) *", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: sellingPrice, onChange: (e) => {
+                                    const next = e.target.value;
+                                    setSellingPrice(next);
+                                    const list = Number.parseFloat(next);
+                                    const rate = Number.parseFloat(discountPct) / 100;
+                                    if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                                        setPrice(String(salePriceFromList(list, rate)));
+                                    }
+                                }, className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Discount (%)", _jsx("input", { type: "number", min: 0, max: 99, step: "1", value: discountPct, onChange: (e) => {
+                                    const next = e.target.value;
+                                    setDiscountPct(next);
+                                    const list = Number.parseFloat(sellingPrice);
+                                    const rate = Number.parseFloat(next) / 100;
+                                    if (!Number.isNaN(list) && list >= 0 && !Number.isNaN(rate)) {
+                                        setPrice(String(salePriceFromList(list, rate)));
+                                    }
+                                }, className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Sale price (USD) *", _jsx("input", { required: true, type: "number", min: 0, step: "0.01", value: price, onChange: (e) => setPrice(e.target.value), className: `block w-full ${inputCls}` })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Status", _jsxs("select", { value: status, onChange: (e) => setStatus(e.target.value), className: `block w-full ${inputCls}`, children: [_jsx("option", { value: "active", children: "Active" }), _jsx("option", { value: "draft", children: "Draft" }), _jsx("option", { value: "archived", children: "Archived" })] })] }), _jsxs("label", { className: "space-y-1 text-xs text-[#6B6480]", children: ["Initial stock", _jsx("input", { type: "number", min: 0, value: initialStock, onChange: (e) => setInitialStock(e.target.value), className: `block w-full ${inputCls}`, placeholder: "Inventory for this SKU" })] })] }), _jsxs("p", { className: "text-xs text-[#6B6480]", children: ["Default discount is ", DEFAULT_DISCOUNT_PCT, "%. Sale price updates from list \u00D7 (1 \u2212 discount)."] }), _jsxs("div", { className: "flex gap-2", children: [_jsx("button", { type: "submit", disabled: saving, className: "rounded-lg bg-[#6D4AFF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60", children: saving ? "Adding…" : "Add variant" }), _jsx("button", { type: "button", onClick: onCancel, className: "rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#6B6480] border border-[#E5E3EE]", children: "Cancel" })] })] }));
 }
 function StockEditor({ sku, quantity, reserved, onSave, }) {
     const [value, setValue] = useState(quantity != null ? String(quantity) : "");

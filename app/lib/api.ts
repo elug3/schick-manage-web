@@ -37,6 +37,7 @@ export interface Product {
   availableSizes?: string[];
   defaultImageUrl?: string;
   priceFrom?: number;
+  sellingPriceFrom?: number;
   variants?: ProductVariant[];
   raw: ProductSearchHit;
 }
@@ -52,11 +53,49 @@ export interface ProductVariant {
   colorCode?: string;
   sizeCode?: string;
   editionCode?: string;
+  /** Official / strikethrough list price. */
+  sellingPrice?: number;
+  /** Real sale price charged at checkout. */
   price: number;
   status: string;
   imageUrls: string[];
   inStock?: boolean;
   raw: ProductSearchHit;
+}
+
+/** Default markdown from list (`sellingPrice`) to sale (`price`). */
+export const DEFAULT_DISCOUNT_RATE = 0.2;
+
+/** Sale price from list price at the given discount fraction (0–1). */
+export function salePriceFromList(
+  listPrice: number,
+  discountRate = DEFAULT_DISCOUNT_RATE
+): number {
+  return roundMoney(listPrice * (1 - discountRate));
+}
+
+/** List price implied by a sale price at the given discount fraction. */
+export function listPriceFromSale(
+  salePrice: number,
+  discountRate = DEFAULT_DISCOUNT_RATE
+): number {
+  if (discountRate >= 1) return salePrice;
+  return roundMoney(salePrice / (1 - discountRate));
+}
+
+/** Discount fraction from list vs sale (0 when list is missing or not above sale). */
+export function discountRateFromPrices(
+  listPrice: number | undefined,
+  salePrice: number
+): number | null {
+  if (listPrice == null || listPrice <= 0 || salePrice < 0 || listPrice <= salePrice) {
+    return null;
+  }
+  return (listPrice - salePrice) / listPrice;
+}
+
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /** Master-data dictionary entry (`/api/v1/catalog/...`). */
@@ -119,6 +158,8 @@ function mapVariant(hit: ProductSearchHit): ProductVariant {
     sizeCode: hitString(hit, "sizeCode") ?? hitString(hit, "size_code"),
     editionCode:
       hitString(hit, "editionCode") ?? hitString(hit, "edition_code"),
+    sellingPrice:
+      hitNumber(hit, "sellingPrice") ?? hitNumber(hit, "selling_price"),
     price: hitNumber(hit, "price") ?? 0,
     status: hitString(hit, "status") ?? "active",
     imageUrls: hitStringArray(hit, "imageUrls") ?? [],
@@ -159,6 +200,23 @@ export function productVariants(product: Product): ProductVariant[] {
     return product.variants;
   }
   return [legacyVariantFromProduct(product)];
+}
+
+/** Resolve a variant by canonical skuId, falling back to human sku. */
+export function findVariant(
+  product: Product,
+  skuIdOrSku: string
+): ProductVariant | undefined {
+  const variants = productVariants(product);
+  return (
+    variants.find((v) => v.skuId === skuIdOrSku) ??
+    variants.find((v) => v.sku === skuIdOrSku)
+  );
+}
+
+/** Admin SKU detail path: `/products/{productId}/SKU/{skuId}`. */
+export function productSkuPath(productId: string, skuIdOrSku: string): string {
+  return `/products/${encodeURIComponent(productId)}/SKU/${encodeURIComponent(skuIdOrSku)}`;
 }
 
 export function formatVariantOption(variant: ProductVariant): string {
@@ -280,6 +338,11 @@ export function mapProduct(
     defaultImageUrl,
     priceFrom:
       hitNumber(hit, "priceFrom") ?? hitNumber(hit, "price_from"),
+    sellingPriceFrom:
+      hitNumber(hit, "sellingPriceFrom") ??
+      hitNumber(hit, "selling_price_from") ??
+      hitNumber(hit, "sellingPrice") ??
+      hitNumber(hit, "selling_price"),
     variants,
     raw: hit,
   };
@@ -413,6 +476,8 @@ export interface CreateVariantInput {
   sizeCode: string;
   editionCode?: string;
   price: number;
+  /** Official list / strikethrough price; sale is `price`. */
+  sellingPrice?: number;
   /** Optional display names; backend enriches from masters when blank. */
   color?: string;
   size?: string;
@@ -437,6 +502,7 @@ export async function createVariant(
         color: input.color,
         size: input.size,
         price: input.price,
+        sellingPrice: input.sellingPrice,
         status: input.status ?? "active",
       }),
     }
@@ -450,6 +516,7 @@ export interface UpdateVariantInput {
   color?: string;
   size?: string;
   price?: number;
+  sellingPrice?: number;
   status?: string;
 }
 
@@ -953,6 +1020,17 @@ export interface StockItem {
 export async function getInventory(sku: string): Promise<StockItem> {
   const res = await authedFetch(
     inventoryPath(`/api/v1/inventory/${encodeURIComponent(sku)}`)
+  );
+  if (!res.ok) throw new Error(await readError(res, "Stock item not found"));
+  return res.json() as Promise<StockItem>;
+}
+
+/** Inventory lookup by canonical ULID `skuId`. */
+export async function getInventoryBySkuId(skuId: string): Promise<StockItem> {
+  const res = await authedFetch(
+    inventoryPath(
+      `/api/v1/inventory/by-sku-id/${encodeURIComponent(skuId)}`
+    )
   );
   if (!res.ok) throw new Error(await readError(res, "Stock item not found"));
   return res.json() as Promise<StockItem>;

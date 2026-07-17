@@ -1,5 +1,27 @@
 import { authedFetch } from "./auth";
 import { authPath, inventoryPath, orderPath, productPath, } from "./gateway";
+/** Default markdown from list (`sellingPrice`) to sale (`price`). */
+export const DEFAULT_DISCOUNT_RATE = 0.2;
+/** Sale price from list price at the given discount fraction (0–1). */
+export function salePriceFromList(listPrice, discountRate = DEFAULT_DISCOUNT_RATE) {
+    return roundMoney(listPrice * (1 - discountRate));
+}
+/** List price implied by a sale price at the given discount fraction. */
+export function listPriceFromSale(salePrice, discountRate = DEFAULT_DISCOUNT_RATE) {
+    if (discountRate >= 1)
+        return salePrice;
+    return roundMoney(salePrice / (1 - discountRate));
+}
+/** Discount fraction from list vs sale (0 when list is missing or not above sale). */
+export function discountRateFromPrices(listPrice, salePrice) {
+    if (listPrice == null || listPrice <= 0 || salePrice < 0 || listPrice <= salePrice) {
+        return null;
+    }
+    return (listPrice - salePrice) / listPrice;
+}
+function roundMoney(n) {
+    return Math.round(n * 100) / 100;
+}
 function hitId(hit, index) {
     const id = hit.id ?? hit.sku ?? hit.title;
     return typeof id === "string" ? id : `item-${index}`;
@@ -34,6 +56,7 @@ function mapVariant(hit) {
         colorCode: hitString(hit, "colorCode") ?? hitString(hit, "color_code"),
         sizeCode: hitString(hit, "sizeCode") ?? hitString(hit, "size_code"),
         editionCode: hitString(hit, "editionCode") ?? hitString(hit, "edition_code"),
+        sellingPrice: hitNumber(hit, "sellingPrice") ?? hitNumber(hit, "selling_price"),
         price: hitNumber(hit, "price") ?? 0,
         status: hitString(hit, "status") ?? "active",
         imageUrls: hitStringArray(hit, "imageUrls") ?? [],
@@ -71,6 +94,16 @@ export function productVariants(product) {
         return product.variants;
     }
     return [legacyVariantFromProduct(product)];
+}
+/** Resolve a variant by canonical skuId, falling back to human sku. */
+export function findVariant(product, skuIdOrSku) {
+    const variants = productVariants(product);
+    return (variants.find((v) => v.skuId === skuIdOrSku) ??
+        variants.find((v) => v.sku === skuIdOrSku));
+}
+/** Admin SKU detail path: `/products/{productId}/SKU/{skuId}`. */
+export function productSkuPath(productId, skuIdOrSku) {
+    return `/products/${encodeURIComponent(productId)}/SKU/${encodeURIComponent(skuIdOrSku)}`;
 }
 export function formatVariantOption(variant) {
     const parts = [variant.color, variant.size].filter(Boolean);
@@ -166,6 +199,10 @@ export function mapProduct(hit, category, index = 0) {
             hitStringArray(hit, "available_sizes"),
         defaultImageUrl,
         priceFrom: hitNumber(hit, "priceFrom") ?? hitNumber(hit, "price_from"),
+        sellingPriceFrom: hitNumber(hit, "sellingPriceFrom") ??
+            hitNumber(hit, "selling_price_from") ??
+            hitNumber(hit, "sellingPrice") ??
+            hitNumber(hit, "selling_price"),
         variants,
         raw: hit,
     };
@@ -262,6 +299,7 @@ export async function createVariant(productId, input) {
             color: input.color,
             size: input.size,
             price: input.price,
+            sellingPrice: input.sellingPrice,
             status: input.status ?? "active",
         }),
     });
@@ -554,6 +592,13 @@ export async function updateOrderStatus(id, status) {
 }
 export async function getInventory(sku) {
     const res = await authedFetch(inventoryPath(`/api/v1/inventory/${encodeURIComponent(sku)}`));
+    if (!res.ok)
+        throw new Error(await readError(res, "Stock item not found"));
+    return res.json();
+}
+/** Inventory lookup by canonical ULID `skuId`. */
+export async function getInventoryBySkuId(skuId) {
+    const res = await authedFetch(inventoryPath(`/api/v1/inventory/by-sku-id/${encodeURIComponent(skuId)}`));
     if (!res.ok)
         throw new Error(await readError(res, "Stock item not found"));
     return res.json();
