@@ -11,6 +11,7 @@ import {
   getInventory,
   getInventoryBySkuId,
   getManageProduct,
+  productImageSrc,
   setInventory,
   updateVariant,
   uploadVariantImage,
@@ -379,7 +380,7 @@ function ImagesSection({
           {variant.imageUrls.map((url) => (
             <div key={url} className="relative">
               <img
-                src={url}
+                src={productImageSrc(url)}
                 alt=""
                 className="h-28 w-28 rounded-xl border border-[#E5E3EE] object-cover"
               />

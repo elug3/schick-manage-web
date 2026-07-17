@@ -10,6 +10,36 @@ function gatewayBase(): string {
   ).replace(/\/$/, "");
 }
 
+/**
+ * Proxy MinIO/S3 image GETs via the API gateway (`/product-images/…`).
+ * Path is forwarded unchanged (unlike service prefixes that strip `/product` etc.).
+ */
+export async function proxyProductImagesRequest(
+  request: Request
+): Promise<Response> {
+  const requestUrl = new URL(request.url);
+  if (!requestUrl.pathname.startsWith("/product-images/")) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const upstream = new URL(
+    `${requestUrl.pathname}${requestUrl.search}`,
+    `${gatewayBase()}/`
+  );
+
+  const headers = new Headers();
+  const accept = request.headers.get("Accept");
+  if (accept) headers.set("Accept", accept);
+
+  return fetch(upstream, {
+    method: request.method === "HEAD" ? "HEAD" : "GET",
+    headers,
+  });
+}
+
 export function gatewayRelativePath(pathname: string): string | null {
   for (const prefix of GATEWAY_PREFIXES) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
