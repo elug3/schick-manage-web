@@ -14,6 +14,7 @@ import {
   listColors,
   listEditions,
   listSizes,
+  productImageSrc,
   productSkuPath,
   productVariants,
   setInventory,
@@ -1272,13 +1273,13 @@ function ProductImageGrid({
           ].join(" ")}
         >
           <a
-            href={url}
+            href={productImageSrc(url)}
             target="_blank"
             rel="noopener noreferrer"
             className="block size-full"
           >
             <img
-              src={url}
+              src={productImageSrc(url)}
               alt=""
               className="size-full object-cover transition group-hover:scale-105"
             />

@@ -39,6 +39,12 @@ Upstream nginx (dupli1) serves versioned paths under `/api/v1/...` with **no** s
 
 Client example: `GET /product/api/v1/products` → gateway `GET /api/v1/products`.
 
+### Product images
+
+Local Docker embeds browser URLs as `{S3_PUBLIC_ENDPOINT}/product-images/{key}` (default `http://localhost:8080/product-images/…`); nginx proxies that path to MinIO. Manage-web rewrites those absolute URLs to same-origin `/product-images/…` and proxies via Vite (dev) or the `product-images/*` SSR route (prod) so the browser does not need to reach the gateway host directly.
+
+**AWS production gap:** the product-images S3 bucket has Block Public Access enabled, `S3_PUBLIC_ENDPOINT` points at the bucket regional domain, and ECS nginx has no `/product-images/` location. Browsers therefore get Access Denied on `<img src>` for API-returned S3 URLs. Fix belongs in `dupli1` (CloudFront OAC or gateway-authenticated image proxy + matching `S3_PUBLIC_ENDPOINT`). `productImageSrc` cannot make private S3 objects public.
+
 ### Auth (`/auth`)
 
 - `POST /auth/api/v1/auth/register` — create account (Bearer; `user.create`)

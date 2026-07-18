@@ -111,18 +111,49 @@ export function productListPrice(product) {
     }).format(value);
     return product.priceFrom != null ? `From ${formatted}` : formatted;
 }
+/**
+ * Make gateway-hosted product image URLs loadable from the manage-web origin.
+ *
+ * Local Docker returns absolute URLs like `http://localhost:8080/product-images/…`
+ * (nginx → MinIO). Browsers on the Vite/SSR origin cannot rely on that host when
+ * it is unreachable (remote tunnel, different machine). Rewrite those to a
+ * same-origin `/product-images/…` path; Vite and the SSR route proxy to the gateway.
+ *
+ * Private AWS S3 object URLs (bucket Block Public Access) cannot be fixed here —
+ * they need CloudFront OAC or a gateway image proxy in `dupli1`. Keep the original
+ * URL for API mutations (delete/update match exact strings).
+ */
+export function productImageSrc(url) {
+    if (!url || url.startsWith("/"))
+        return url;
+    try {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith("/product-images/")) {
+            return `${parsed.pathname}${parsed.search}`;
+        }
+    }
+    catch {
+        // Relative or opaque strings — use as-is.
+    }
+    return url;
+}
 /** Best-effort thumbnail for list cards (parent default or first variant image). */
 export function productPreviewImage(product) {
+    let url = null;
     if (product.defaultImageUrl)
-        return product.defaultImageUrl;
-    if (product.imageUrls && product.imageUrls.length > 0) {
-        return product.imageUrls[0];
+        url = product.defaultImageUrl;
+    else if (product.imageUrls && product.imageUrls.length > 0) {
+        url = product.imageUrls[0];
     }
-    for (const variant of productVariants(product)) {
-        if (variant.imageUrls.length > 0)
-            return variant.imageUrls[0];
+    else {
+        for (const variant of productVariants(product)) {
+            if (variant.imageUrls.length > 0) {
+                url = variant.imageUrls[0];
+                break;
+            }
+        }
     }
-    return null;
+    return url ? productImageSrc(url) : null;
 }
 /** Map variant SKU → parent product and option labels (for order line items). */
 export function buildVariantSkuIndex(products) {

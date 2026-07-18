@@ -44,6 +44,11 @@ type Pages = {
       "*": string;
     };
   };
+  "/product-images/*": {
+    params: {
+      "*": string;
+    };
+  };
   "/inventory/*": {
     params: {
       "*": string;
@@ -105,7 +110,7 @@ type Pages = {
 type RouteFiles = {
   "root.js": {
     id: "root";
-    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/auth/session/register" | "/auth/session/gateway/*" | "/auth/api/*" | "/product/*" | "/inventory/*" | "/order/*" | "/login" | "/products" | "/products/new" | "/products/:id/SKU/:skuId" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
+    page: "/" | "/auth/session/login" | "/auth/session/refresh" | "/auth/session/logout" | "/auth/session/me" | "/auth/session/register" | "/auth/session/gateway/*" | "/auth/api/*" | "/product/*" | "/product-images/*" | "/inventory/*" | "/order/*" | "/login" | "/products" | "/products/new" | "/products/:id/SKU/:skuId" | "/products/:id" | "/catalog" | "/orders" | "/coupons" | "/analytics" | "/users" | "/users/new" | "/users/:id" | "/settings";
   };
   "routes/auth.session.login.tsx": {
     id: "routes/auth.session.login";
@@ -138,6 +143,10 @@ type RouteFiles = {
   "routes/gateway.product.tsx": {
     id: "routes/gateway.product";
     page: "/product/*";
+  };
+  "routes/gateway.product-images.tsx": {
+    id: "routes/gateway.product-images";
+    page: "/product-images/*";
   };
   "routes/gateway.inventory.tsx": {
     id: "routes/gateway.inventory";
@@ -219,6 +228,7 @@ type RouteModules = {
   "routes/auth.session.gateway": typeof import("./app/routes/auth.session.gateway.tsx");
   "routes/gateway.auth-api": typeof import("./app/routes/gateway.auth-api.tsx");
   "routes/gateway.product": typeof import("./app/routes/gateway.product.tsx");
+  "routes/gateway.product-images": typeof import("./app/routes/gateway.product-images.tsx");
   "routes/gateway.inventory": typeof import("./app/routes/gateway.inventory.tsx");
   "routes/gateway.order": typeof import("./app/routes/gateway.order.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");

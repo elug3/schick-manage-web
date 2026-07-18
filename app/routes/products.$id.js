@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { createVariant, deleteVariant, deleteVariantImage, LastImageDeleteError, formatVariantOption, getInventory, getManageProduct, listColors, listEditions, listSizes, productSkuPath, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
+import { createVariant, deleteVariant, deleteVariantImage, LastImageDeleteError, formatVariantOption, getInventory, getManageProduct, listColors, listEditions, listSizes, productImageSrc, productSkuPath, productVariants, setInventory, updateProduct, updateVariant, uploadProductImage, uploadVariantImage, } from "~/lib/api";
 import { useI18n } from "~/lib/i18n";
 import { useNotify } from "~/lib/notifications";
 const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
@@ -477,7 +477,7 @@ function ProductImageGrid({ urls, deletingUrl, onDelete, compact = false, }) {
             : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4", children: urls.map((url) => (_jsxs("div", { className: [
                 "group relative aspect-square overflow-hidden border border-[#E5E3EE] bg-[#FAFAFA]",
                 compact ? "rounded-lg" : "rounded-xl",
-            ].join(" "), children: [_jsx("a", { href: url, target: "_blank", rel: "noopener noreferrer", className: "block size-full", children: _jsx("img", { src: url, alt: "", className: "size-full object-cover transition group-hover:scale-105" }) }), _jsx("button", { type: "button", onClick: (e) => {
+            ].join(" "), children: [_jsx("a", { href: productImageSrc(url), target: "_blank", rel: "noopener noreferrer", className: "block size-full", children: _jsx("img", { src: productImageSrc(url), alt: "", className: "size-full object-cover transition group-hover:scale-105" }) }), _jsx("button", { type: "button", onClick: (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         onDelete(url);
