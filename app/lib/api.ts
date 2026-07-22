@@ -13,6 +13,36 @@ export type ProductSearchHit = Record<string, unknown>;
 export interface ProductSearchResponse {
   total: number;
   results: ProductSearchHit[];
+  limit?: number;
+  offset?: number;
+  sort?: string;
+  order?: string;
+  period?: string;
+}
+
+/** Query params for `GET /api/v1/products` (server-side filters). */
+export interface ProductListQuery {
+  q?: string;
+  category?: string;
+  brand?: string;
+  color?: string;
+  size?: string;
+  material?: string;
+  status?: string;
+  sort?: string;
+  order?: string;
+  period?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ProductListResult {
+  products: Product[];
+  total: number;
+  limit: number;
+  offset: number;
+  sort?: string;
+  order?: string;
 }
 
 export interface Product {
@@ -358,13 +388,52 @@ async function readError(res: Response, fallback: string): Promise<string> {
   }
 }
 
-/** List all products (all statuses when authenticated with product.read). */
-export async function listAllProducts(): Promise<Product[]> {
-  const res = await authedFetch(productPath("/api/v1/products"));
+/** List products with optional server-side filters / sort / pagination. */
+export async function searchProducts(
+  query: ProductListQuery = {}
+): Promise<ProductListResult> {
+  const params = new URLSearchParams();
+  const set = (key: string, value: string | number | undefined) => {
+    if (value == null) return;
+    const text = String(value).trim();
+    if (text) params.set(key, text);
+  };
+  set("q", query.q);
+  set("category", query.category);
+  set("brand", query.brand);
+  set("color", query.color);
+  set("size", query.size);
+  set("material", query.material);
+  set("status", query.status);
+  set("sort", query.sort);
+  set("order", query.order);
+  set("period", query.period);
+  set("limit", query.limit);
+  set("offset", query.offset);
+
+  const qs = params.toString();
+  const res = await authedFetch(
+    productPath(`/api/v1/products${qs ? `?${qs}` : ""}`)
+  );
   if (!res.ok) throw new Error(await readError(res, "Failed to list products"));
   const data = (await res.json()) as ProductSearchResponse;
   const hits = Array.isArray(data.results) ? data.results : [];
-  return hits.map((hit, i) => mapProduct(hit, undefined, i));
+  return {
+    products: hits.map((hit, i) => mapProduct(hit, undefined, i)),
+    total: typeof data.total === "number" ? data.total : hits.length,
+    limit: typeof data.limit === "number" ? data.limit : query.limit ?? 50,
+    offset: typeof data.offset === "number" ? data.offset : query.offset ?? 0,
+    sort: data.sort,
+    order: data.order,
+  };
+}
+
+/** List products (all statuses when authenticated with product.read). */
+export async function listAllProducts(
+  query: ProductListQuery = {}
+): Promise<Product[]> {
+  const { products } = await searchProducts(query);
+  return products;
 }
 
 export async function getProducts(): Promise<Product[]> {
