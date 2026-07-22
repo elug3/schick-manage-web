@@ -517,7 +517,7 @@ export const zhCN: Messages = {
       "通过 PATCH /auth/api/v1/auth/users/{id}/permissions 替换权限分配。空列表表示账户无提升权限。",
     accountType: "账户类型",
     accountTypeCustomer: "customer",
-    accountTypeAdmin: "admin",
+    accountTypeManager: "manager",
     accountTypeService: "service",
     savePermissions: "保存权限",
     permissionsUpdated: "权限已更新",
