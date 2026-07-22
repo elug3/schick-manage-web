@@ -30,7 +30,7 @@ const fieldCls =
 export default function SkuDetail() {
   const { id, skuId } = useParams();
   const navigate = useNavigate();
-  const { t, formatCurrency } = useI18n();
+  const { t } = useI18n();
   const { notify } = useNotify();
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState<ProductVariant | null>(null);
@@ -158,7 +158,6 @@ export default function SkuDetail() {
               t("skuDetail.editionCode"),
               variant.editionCode ?? t("common.emptyValue"),
             ],
-            [t("productDetail.price"), formatCurrency(variant.price)],
             [t("productDetail.status"), variant.status],
             [t("productDetail.colStock"), stockLabel],
           ].map(([label, value]) => (
@@ -170,6 +169,15 @@ export default function SkuDetail() {
             </div>
           ))}
         </dl>
+
+        <PriceSection
+          productId={product.id}
+          variant={variant}
+          onSaved={(updated) => {
+            setVariant(updated);
+            notify(t("skuDetail.priceUpdated"));
+          }}
+        />
 
         <StockSection
           sku={variant.sku}
@@ -228,6 +236,85 @@ export default function SkuDetail() {
         </div>
       </div>
     </div>
+  );
+}
+
+function PriceSection({
+  productId,
+  variant,
+  onSaved,
+}: {
+  productId: string;
+  variant: ProductVariant;
+  onSaved: (variant: ProductVariant) => void;
+}) {
+  const { t, formatCurrency } = useI18n();
+  const { notify } = useNotify();
+  const [value, setValue] = useState(String(variant.price));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(String(variant.price));
+  }, [variant.price]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = Number.parseFloat(value);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      notify(t("common.enterValidPrice"), "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await updateVariant(productId, variant.sku, {
+        price: parsed,
+      });
+      onSaved(updated);
+    } catch (err) {
+      notify(
+        err instanceof Error
+          ? err.message
+          : t("productDetail.failedToUpdateVariant"),
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="space-y-3 border-t border-[#F0EEF8] pt-6">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-[#9D98B3]">
+        {t("skuDetail.price")}
+      </h2>
+      <p className="text-sm text-[#6B6480]">
+        {t("skuDetail.currentPrice", { price: formatCurrency(variant.price) })}
+      </p>
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+        <label className="space-y-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
+            {t("skuDetail.priceKrw")}
+          </span>
+          <input
+            type="number"
+            min={0}
+            step="1"
+            required
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className={`w-44 ${fieldCls}`}
+            placeholder={t("productNew.pricePlaceholder")}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {saving ? t("common.saving") : t("skuDetail.updatePrice")}
+        </button>
+      </form>
+    </section>
   );
 }
 
@@ -431,30 +518,22 @@ function EditSection({
   const { notify } = useNotify();
   const [color, setColor] = useState(variant.color);
   const [size, setSize] = useState(variant.size);
-  const [price, setPrice] = useState(String(variant.price));
   const [status, setStatus] = useState(variant.status);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setColor(variant.color);
     setSize(variant.size);
-    setPrice(String(variant.price));
     setStatus(variant.status);
   }, [variant]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsedSale = Number.parseFloat(price);
-    if (Number.isNaN(parsedSale) || parsedSale < 0) {
-      notify(t("common.enterValidPrice"), "error");
-      return;
-    }
     setSaving(true);
     try {
       await updateVariant(productId, variant.sku, {
         color: color.trim(),
         size: size.trim(),
-        price: parsedSale,
         status: status.trim() || "active",
       });
       await onSaved();
@@ -496,21 +575,7 @@ function EditSection({
             className={fieldCls}
           />
         </label>
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
-            {t("productDetail.price")}
-          </span>
-          <input
-            type="number"
-            min={0}
-            step="1"
-            required
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className={fieldCls}
-          />
-        </label>
-        <label className="space-y-1.5">
+        <label className="space-y-1.5 sm:col-span-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[#6B6480]">
             {t("productDetail.status")}
           </span>
