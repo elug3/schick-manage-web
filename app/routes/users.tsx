@@ -5,6 +5,7 @@ import {
   formatPermissions,
   isCustomerUser,
   isManagerUser,
+  isServiceUser,
   listUsers,
 } from "~/lib/api";
 import { useI18n } from "~/lib/i18n";
@@ -13,7 +14,32 @@ export function meta() {
   return [{ title: "Users | Dupli1 Admin" }];
 }
 
-type UserTab = "customers" | "managers";
+type UserTab = "customers" | "managers" | "services";
+
+function userMatchesTab(user: AuthUser, tab: UserTab): boolean {
+  switch (tab) {
+    case "customers":
+      return isCustomerUser(user);
+    case "managers":
+      return isManagerUser(user);
+    case "services":
+      return isServiceUser(user);
+  }
+}
+
+function accountTypeLabel(
+  accountType: AuthUser["account_type"],
+  t: (key: string) => string
+): string {
+  switch (accountType) {
+    case "customer":
+      return t("userDetail.accountTypeCustomer");
+    case "manager":
+      return t("userDetail.accountTypeManager");
+    case "service":
+      return t("userDetail.accountTypeService");
+  }
+}
 
 export default function Users() {
   const { t } = useI18n();
@@ -33,12 +59,13 @@ export default function Users() {
         setError(err instanceof Error ? err.message : t("users.failedToLoad"));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const counts = useMemo(
     () => ({
       customers: users.filter(isCustomerUser).length,
       managers: users.filter(isManagerUser).length,
+      services: users.filter(isServiceUser).length,
     }),
     [users]
   );
@@ -46,11 +73,7 @@ export default function Users() {
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return users.filter((user) => {
-      const inTab =
-        activeTab === "customers"
-          ? isCustomerUser(user)
-          : isManagerUser(user);
-      if (!inTab) return false;
+      if (!userMatchesTab(user, activeTab)) return false;
       if (!needle) return true;
       return (
         user.email.toLowerCase().includes(needle) ||
@@ -61,13 +84,18 @@ export default function Users() {
     });
   }, [users, activeTab, search]);
 
-  const tabs: { labelKey: "users.tabCustomers" | "users.tabManagers"; value: UserTab }[] = [
+  const tabs: {
+    labelKey: "users.tabCustomers" | "users.tabManagers" | "users.tabServices";
+    value: UserTab;
+  }[] = [
     { labelKey: "users.tabCustomers", value: "customers" },
     { labelKey: "users.tabManagers", value: "managers" },
+    { labelKey: "users.tabServices", value: "services" },
   ];
 
   const headers = [
     t("users.colEmail"),
+    t("users.colAccountType"),
     t("users.colPermissions"),
     t("users.colStatus"),
     "",
@@ -95,6 +123,7 @@ export default function Users() {
         {tabs.map((tab) => (
           <button
             key={tab.value}
+            type="button"
             onClick={() => setActiveTab(tab.value)}
             className={[
               "rounded-full px-4 py-1.5 text-sm font-medium transition",
@@ -169,6 +198,9 @@ export default function Users() {
                         </p>
                       </td>
                       <td className="px-5 py-3.5 text-[#6B6480]">
+                        {accountTypeLabel(user.account_type, t)}
+                      </td>
+                      <td className="px-5 py-3.5 text-[#6B6480]">
                         {formatPermissions(user.permissions)}
                       </td>
                       <td className="px-5 py-3.5">
@@ -203,6 +235,9 @@ function UserCard({ user }: { user: AuthUser }) {
         <p className="mt-1 font-mono text-xs text-[#6B6480]">{user.user_id}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-[#6B6480]">
+        <span className="rounded-full bg-[#F4F3F8] px-2.5 py-1">
+          {accountTypeLabel(user.account_type, t)}
+        </span>
         <span className="rounded-full bg-[#F4F3F8] px-2.5 py-1">
           {formatPermissions(user.permissions)}
         </span>

@@ -1318,11 +1318,15 @@ function mapAuthUser(raw: Record<string, unknown>): AuthUser {
 }
 
 export function isManagerUser(user: AuthUser): boolean {
-  return user.account_type !== "customer";
+  return user.account_type === "manager";
 }
 
 export function isCustomerUser(user: AuthUser): boolean {
   return user.account_type === "customer";
+}
+
+export function isServiceUser(user: AuthUser): boolean {
+  return user.account_type === "service";
 }
 
 export function formatPermissions(permissions: string[]): string {

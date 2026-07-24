@@ -800,10 +800,13 @@ function mapAuthUser(raw) {
     };
 }
 export function isManagerUser(user) {
-    return user.account_type !== "customer";
+    return user.account_type === "manager";
 }
 export function isCustomerUser(user) {
     return user.account_type === "customer";
+}
+export function isServiceUser(user) {
+    return user.account_type === "service";
 }
 export function formatPermissions(permissions) {
     return permissions.length > 0 ? permissions.join(", ") : "—";
