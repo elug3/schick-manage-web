@@ -13,7 +13,7 @@ import {
 import { useI18n } from "~/lib/i18n";
 import { useNotify } from "~/lib/notifications";
 
-const ACCOUNT_TYPES: AccountType[] = ["customer", "admin", "service"];
+const ACCOUNT_TYPES: AccountType[] = ["customer", "manager", "service"];
 
 export function meta() {
   return [{ title: "User | Dupli1 Admin" }];
@@ -370,7 +370,7 @@ function PermissionsTab({
 
   const accountTypeLabels: Record<AccountType, string> = {
     customer: t("userDetail.accountTypeCustomer"),
-    admin: t("userDetail.accountTypeAdmin"),
+    manager: t("userDetail.accountTypeManager"),
     service: t("userDetail.accountTypeService"),
   };
 

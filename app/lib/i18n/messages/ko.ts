@@ -518,7 +518,7 @@ export const ko: Messages = {
       "PATCH /auth/api/v1/auth/users/{id}/permissions를 통해 권한 할당을 교체합니다. 빈 목록이면 계정에 상승된 권한이 없습니다.",
     accountType: "계정 유형",
     accountTypeCustomer: "customer",
-    accountTypeAdmin: "admin",
+    accountTypeManager: "manager",
     accountTypeService: "service",
     savePermissions: "권한 저장",
     permissionsUpdated: "권한이 업데이트되었습니다",

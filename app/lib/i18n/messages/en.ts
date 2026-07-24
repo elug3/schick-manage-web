@@ -516,7 +516,7 @@ export const en = {
       "Replace permission assignments via PATCH /auth/api/v1/auth/users/{id}/permissions. An empty list leaves the account with no elevated access.",
     accountType: "Account type",
     accountTypeCustomer: "customer",
-    accountTypeAdmin: "admin",
+    accountTypeManager: "manager",
     accountTypeService: "service",
     savePermissions: "Save permissions",
     permissionsUpdated: "Permissions updated",

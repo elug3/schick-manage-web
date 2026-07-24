@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router";
 import { ALL_PERMISSIONS, formatPermissions, getUserById, setUserPassword, setUserPermissions, setUserStatus, } from "~/lib/api";
 import { useI18n } from "~/lib/i18n";
 import { useNotify } from "~/lib/notifications";
-const ACCOUNT_TYPES = ["customer", "admin", "service"];
+const ACCOUNT_TYPES = ["customer", "manager", "service"];
 export function meta() {
     return [{ title: "User | Dupli1 Admin" }];
 }
@@ -179,7 +179,7 @@ function PermissionsTab({ user, onUpdated, }) {
     }
     const accountTypeLabels = {
         customer: t("userDetail.accountTypeCustomer"),
-        admin: t("userDetail.accountTypeAdmin"),
+        manager: t("userDetail.accountTypeManager"),
         service: t("userDetail.accountTypeService"),
     };
     return (_jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [_jsx("p", { className: "text-sm text-[#6B6480]", children: t("userDetail.permissionsHint") }), _jsxs("div", { className: "space-y-1.5", children: [_jsx("label", { htmlFor: "account-type", className: "text-xs font-semibold uppercase tracking-wide text-[#6B6480]", children: t("userDetail.accountType") }), _jsx("select", { id: "account-type", value: accountType, onChange: (e) => setAccountType(e.target.value), className: inputCls, children: ACCOUNT_TYPES.map((type) => (_jsx("option", { value: type, children: accountTypeLabels[type] }, type))) })] }), _jsx("div", { className: "grid gap-2 sm:grid-cols-2", children: ALL_PERMISSIONS.map((permission) => (_jsxs("label", { className: "flex cursor-pointer items-center gap-3 rounded-xl border border-[#E5E3EE] bg-[#FAFAFA] px-4 py-3 text-sm text-[#1C1B1F]", children: [_jsx("input", { type: "checkbox", checked: selectedPermissions.includes(permission), onChange: () => togglePermission(permission), className: "size-4 rounded border-[#C8C4D8] text-[#6D4AFF] focus:ring-[#6D4AFF]/20" }), _jsx("span", { className: "font-mono text-xs font-medium", children: permission })] }, permission))) }), _jsx("button", { type: "submit", disabled: saving, className: "rounded-xl bg-[#6D4AFF] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5A38E8] disabled:opacity-60", children: saving ? t("common.saving") : t("userDetail.savePermissions") })] }));

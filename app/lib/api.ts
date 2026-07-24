@@ -1258,7 +1258,35 @@ export const ALL_PERMISSIONS = [
   ...PERMISSION_CATALOG,
 ] as const;
 
-export type AccountType = "customer" | "admin" | "service";
+export type AccountType = "customer" | "manager" | "service";
+
+/** Wire values currently accepted by dupli1-auth ValidAccountType. */
+type ApiAccountType = "customer" | "admin" | "service";
+
+/**
+ * Normalize auth API account_type into the manage-web model.
+ * Backend still stores human operators as `admin`; product language uses
+ * `manager` (admin is a permission/management tier, not an account type).
+ */
+export function normalizeAccountType(
+  value: string | null | undefined
+): AccountType {
+  switch (value) {
+    case "manager":
+    case "admin":
+      return "manager";
+    case "service":
+      return "service";
+    case "customer":
+    default:
+      return "customer";
+  }
+}
+
+/** Map manage-web account type to the auth API wire value. */
+export function toApiAccountType(value: AccountType): ApiAccountType {
+  return value === "manager" ? "admin" : value;
+}
 
 export interface AuthUser {
   user_id: string;
@@ -1268,6 +1296,25 @@ export interface AuthUser {
   is_active: boolean;
   locked_at: string | null;
   failed_login_attempts: number;
+}
+
+function mapAuthUser(raw: Record<string, unknown>): AuthUser {
+  return {
+    user_id: typeof raw.user_id === "string" ? raw.user_id : "",
+    email: typeof raw.email === "string" ? raw.email : "",
+    account_type: normalizeAccountType(
+      typeof raw.account_type === "string" ? raw.account_type : undefined
+    ),
+    permissions: Array.isArray(raw.permissions)
+      ? raw.permissions.filter((p): p is string => typeof p === "string")
+      : [],
+    is_active: raw.is_active !== false,
+    locked_at: typeof raw.locked_at === "string" ? raw.locked_at : null,
+    failed_login_attempts:
+      typeof raw.failed_login_attempts === "number"
+        ? raw.failed_login_attempts
+        : 0,
+  };
 }
 
 export function isManagerUser(user: AuthUser): boolean {
@@ -1285,8 +1332,8 @@ export function formatPermissions(permissions: string[]): string {
 export async function listUsers(): Promise<AuthUser[]> {
   const res = await authedFetch(authPath("/api/v1/auth/users"));
   if (!res.ok) throw new Error(await readError(res, "Failed to list users"));
-  const data = (await res.json()) as { users?: AuthUser[] };
-  return data.users ?? [];
+  const data = (await res.json()) as { users?: Record<string, unknown>[] };
+  return (data.users ?? []).map(mapAuthUser);
 }
 
 export async function getUserById(userId: string): Promise<AuthUser | null> {
@@ -1318,13 +1365,19 @@ export async function setUserPermissions(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
-        accountType ? { permissions, account_type: accountType } : { permissions }
+        accountType
+          ? {
+              permissions,
+              account_type: toApiAccountType(accountType),
+            }
+          : { permissions }
       ),
     }
   );
   if (!res.ok)
     throw new Error(await readError(res, "Failed to update permissions"));
-  return res.json() as Promise<AuthUser>;
+  const raw = (await res.json()) as Record<string, unknown>;
+  return mapAuthUser(raw);
 }
 
 export async function setUserPassword(
@@ -1355,7 +1408,8 @@ export async function setUserStatus(
     }
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to update status"));
-  return res.json() as Promise<AuthUser>;
+  const raw = (await res.json()) as Record<string, unknown>;
+  return mapAuthUser(raw);
 }
 
 // ── Dashboard / Analytics ──────────────────────────────────────────────────────

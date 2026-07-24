@@ -2,6 +2,12 @@ import { backendGet, backendPost, serviceUrl } from "./backend";
 import { gatewayRelativePath, proxyGatewayRequestForPath, } from "./gateway-proxy";
 import { clearSessionCookieHeader, getSessionId, setSessionCookieHeader, } from "./session-cookie";
 import { createSession, deleteSession, getCachedAccessToken, getRefreshToken, getSession, setCachedAccessToken, } from "./session-store";
+/** Auth still stores human operators as `admin`; manage-web displays `manager`. */
+function normalizeSessionAccountType(value) {
+    if (value === "admin")
+        return "manager";
+    return value || "customer";
+}
 function jsonResponse(body, init = {}) {
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
@@ -90,7 +96,7 @@ export async function handleSessionLogin(request) {
         account_type: "customer",
         permissions: [],
     };
-    const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.permissions ?? [], profile.account_type ?? "customer");
+    const sessionId = createSession(refresh_token, profile.email || email, profile.user_id, profile.permissions ?? [], normalizeSessionAccountType(profile.account_type));
     cacheAccessToken(sessionId, exchanged.accessToken);
     return jsonResponse({ email }, { headers: { "Set-Cookie": setSessionCookieHeader(sessionId, request) } });
 }

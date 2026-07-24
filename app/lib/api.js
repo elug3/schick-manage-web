@@ -763,6 +763,42 @@ export const ALL_PERMISSIONS = [
     ...PERMISSION_WILDCARDS,
     ...PERMISSION_CATALOG,
 ];
+/**
+ * Normalize auth API account_type into the manage-web model.
+ * Backend still stores human operators as `admin`; product language uses
+ * `manager` (admin is a permission/management tier, not an account type).
+ */
+export function normalizeAccountType(value) {
+    switch (value) {
+        case "manager":
+        case "admin":
+            return "manager";
+        case "service":
+            return "service";
+        case "customer":
+        default:
+            return "customer";
+    }
+}
+/** Map manage-web account type to the auth API wire value. */
+export function toApiAccountType(value) {
+    return value === "manager" ? "admin" : value;
+}
+function mapAuthUser(raw) {
+    return {
+        user_id: typeof raw.user_id === "string" ? raw.user_id : "",
+        email: typeof raw.email === "string" ? raw.email : "",
+        account_type: normalizeAccountType(typeof raw.account_type === "string" ? raw.account_type : undefined),
+        permissions: Array.isArray(raw.permissions)
+            ? raw.permissions.filter((p) => typeof p === "string")
+            : [],
+        is_active: raw.is_active !== false,
+        locked_at: typeof raw.locked_at === "string" ? raw.locked_at : null,
+        failed_login_attempts: typeof raw.failed_login_attempts === "number"
+            ? raw.failed_login_attempts
+            : 0,
+    };
+}
 export function isManagerUser(user) {
     return user.account_type !== "customer";
 }
@@ -777,7 +813,7 @@ export async function listUsers() {
     if (!res.ok)
         throw new Error(await readError(res, "Failed to list users"));
     const data = (await res.json());
-    return data.users ?? [];
+    return (data.users ?? []).map(mapAuthUser);
 }
 export async function getUserById(userId) {
     const users = await listUsers();
@@ -797,11 +833,17 @@ export async function setUserPermissions(userId, permissions, accountType) {
     const res = await authedFetch(authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/permissions`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(accountType ? { permissions, account_type: accountType } : { permissions }),
+        body: JSON.stringify(accountType
+            ? {
+                permissions,
+                account_type: toApiAccountType(accountType),
+            }
+            : { permissions }),
     });
     if (!res.ok)
         throw new Error(await readError(res, "Failed to update permissions"));
-    return res.json();
+    const raw = (await res.json());
+    return mapAuthUser(raw);
 }
 export async function setUserPassword(userId, password) {
     const res = await authedFetch(authPath(`/api/v1/auth/users/${encodeURIComponent(userId)}/password`), {
@@ -820,7 +862,8 @@ export async function setUserStatus(userId, isActive) {
     });
     if (!res.ok)
         throw new Error(await readError(res, "Failed to update status"));
-    return res.json();
+    const raw = (await res.json());
+    return mapAuthUser(raw);
 }
 export async function getDashboardStats() {
     const [products, orders] = await Promise.all([

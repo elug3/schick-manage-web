@@ -55,10 +55,13 @@ function parseMe(body: {
   user_id?: string;
   account_type?: string;
 }): User {
+  const rawType = body.account_type;
   return {
     id: body.user_id ?? "",
     email: body.email,
-    accountType: body.account_type,
+    // Auth API still wires human operators as `admin`; UI uses `manager`.
+    accountType:
+      rawType === "admin" ? "manager" : rawType,
   };
 }
 

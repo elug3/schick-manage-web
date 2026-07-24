@@ -32,6 +32,12 @@ interface AuthMeResponse {
   permissions?: string[];
 }
 
+/** Auth still stores human operators as `admin`; manage-web displays `manager`. */
+function normalizeSessionAccountType(value: string | undefined): string {
+  if (value === "admin") return "manager";
+  return value || "customer";
+}
+
 function jsonResponse(
   body: unknown,
   init: ResponseInit = {}
@@ -153,7 +159,7 @@ export async function handleSessionLogin(request: Request): Promise<Response> {
     profile.email || email,
     profile.user_id,
     profile.permissions ?? [],
-    profile.account_type ?? "customer"
+    normalizeSessionAccountType(profile.account_type)
   );
   cacheAccessToken(sessionId, exchanged.accessToken);
 
